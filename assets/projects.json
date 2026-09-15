@@ -1,0 +1,21 @@
+{
+  "_comment": "Featured repos in README order. Star/fork/language are fetched live on every workflow run; description here acts as fallback or override.",
+  "projects": [
+    {
+      "repo": "ssambit635-svg-Annadata-Connect",
+      "description": "A smart procurement platform for farmers built for Smart India Hackathon (SIH) 2026."
+    },
+    {
+      "repo": "Shadow-quest",
+      "description": "A life-based role-play gamified todo and task quest app built for Tech Zypher 2026 Hackathon."
+    },
+    {
+      "repo": "Aws-dashboard-frontend",
+      "description": "Hands-on cloud monitoring dashboard tracking live AWS EC2, S3, and billing breakdowns with real-time telemetry."
+    },
+    {
+      "repo": "Weather-sense",
+      "description": "Real-time weather detection web app with 7-day forecast, AQI telemetry, lifestyle indexes, and smooth themes."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "title": "Skill Radar",
+  "_comment": "Self-rated skillset. Values are 0-100; 5-8 axes reads best.",
+  "axes": [
+    { "label": "Python",        "value": 88 },
+    { "label": "Cloud / AWS",   "value": 82 },
+    { "label": "TypeScript",    "value": 80 },
+    { "label": "React / UI",    "value": 84 },
+    { "label": "Docker/DevOps", "value": 76 },
+    { "label": "REST APIs",     "value": 85 },
+    { "label": "DSA",           "value": 75 }
+  ]
+}
