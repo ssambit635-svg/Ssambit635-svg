@@ -2,20 +2,20 @@
   "_comment": "Featured repos in README order. Star/fork/language are fetched live on every workflow run; description here acts as fallback or override.",
   "projects": [
     {
-      "repo": "Aws-dashboard-frontend",
-      "description": "Interactive AWS cloud resource & cost dashboard. Real-time metrics for EC2, S3, and billing breakdowns with live charts."
-    },
-    {
-      "repo": "Weather-sense",
-      "description": "Real-time weather detection web app with 7-day forecasting, AQI air quality telemetry, lifestyle scores, and clean UI."
-    },
-    {
-      "repo": "Civic-report",
-      "description": "AI-powered civic issue reporting platform for Berhampur, Odisha. Automated categorization with Gemini AI and interactive maps."
+      "repo": "ssambit635-svg-Annadata-Connect",
+      "description": "A smart procurement platform for farmers built for Smart India Hackathon (SIH) 2026."
     },
     {
       "repo": "Shadow-quest",
-      "description": "An interactive browser quest engine built with TypeScript featuring real-time state management and responsive gameplay."
+      "description": "A life-based role-play gamified todo and task quest app built for Tech Zypher 2026 Hackathon."
+    },
+    {
+      "repo": "Aws-dashboard-frontend",
+      "description": "Hands-on cloud monitoring dashboard tracking live AWS EC2, S3, and billing breakdowns with real-time telemetry."
+    },
+    {
+      "repo": "Weather-sense",
+      "description": "Real-time weather detection web app with 7-day forecast, AQI telemetry, lifestyle indexes, and smooth themes."
     }
   ]
 }
