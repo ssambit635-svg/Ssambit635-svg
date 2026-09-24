@@ -1,0 +1,57 @@
+name: Contribution lenses
+
+on:
+  schedule:
+    # 04:20 UTC - after the Metrics run, before most people open GitHub
+    - cron: "20 4 * * *"
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: "How many weeks to render"
+        default: "53"
+        type: string
+      modes:
+        description: "Comma separated: night,climate,pulse,life"
+        default: "night,climate,pulse,life"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "scripts/contribgraph.py"
+      - "assets/contributions.json"
+      - ".github/workflows/graph.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  lenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pulls the live calendar from github.com/users/<you>/contributions (no token
+      # needed) and re-caches it to assets/contributions.json. If github.com is
+      # unreachable the script falls back to the cached grid, so the README can
+      # never end up pointing at a half-written file.
+      - name: Draw the four lenses
+        env:
+          GH_USER: ${{ github.repository_owner }}
+        run: |
+          python scripts/contribgraph.py \
+            --user "$GH_USER" \
+            --out assets \
+            --weeks "${{ inputs.weeks || 53 }}" \
+            --modes "${{ inputs.modes || 'night,climate,pulse,life' }}"
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/graph-*.svg assets/contributions.json
+          git diff --staged --quiet || git commit -m "chore: refresh contribution lenses"
+          git push

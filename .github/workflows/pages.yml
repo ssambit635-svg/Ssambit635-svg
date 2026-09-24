@@ -1,0 +1,52 @@
+name: Contribution lab site
+
+# The README can only show an <img>. This publishes the *interactive* version of
+# the same grid (hover, scrub, step the automaton) to GitHub Pages so the profile
+# can link out to it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lab.html"
+      - "assets/graph-*.svg"
+      - "assets/contributions.json"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/assets
+          cp lab.html preview.html _site/
+          cp assets/graph-*.svg assets/contributions.json assets/*.svg _site/assets/ 2>/dev/null || true
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

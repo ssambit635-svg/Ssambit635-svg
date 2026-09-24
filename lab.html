@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>contribution lab · Sambit Swain</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#21262d; --line2:#30363d;
+    --fg:#e6edf3; --mut:#8b949e; --dim:#6e7681; --acc:#39d353; --acc2:#2ea043;
+    --gold:#ffd479; --sky:#79c0ff; --l0:#151a21; --l1:#1a7f37; --l2:#2ea043;
+    --l3:#56d364; --l4:#e6ffed; --shadow:0 8px 28px rgba(1,4,9,.55);
+    color-scheme:dark;
+  }
+  html[data-theme=light]{
+    --bg:#f6f8fa; --panel:#fff; --line:#d8dee4; --line2:#d0d7de;
+    --fg:#1f2328; --mut:#57606a; --dim:#6e7781; --acc:#1a7f37; --acc2:#2da44e;
+    --gold:#bf8700; --sky:#0969da; --l0:#eaeef2; --l1:#aceebb; --l2:#4ac26b;
+    --l3:#2da44e; --l4:#033a1a; --shadow:0 8px 24px rgba(31,35,40,.10);
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+    padding:26px clamp(14px,3vw,40px) 80px}
+  h1{font-size:19px;margin:0 0 4px;letter-spacing:.01em}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut);font-size:12.5px;margin:0 0 20px}
+  a{color:var(--acc)}
+  .wrap{max-width:1120px;margin:0 auto}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line2);
+    border-radius:9px;overflow:hidden}
+  .seg button{appearance:none;background:transparent;border:0;color:var(--mut);
+    padding:7px 13px;font:inherit;font-size:12.5px;cursor:pointer;display:flex;gap:7px;align-items:center}
+  .seg button[aria-pressed=true]{background:var(--acc2);color:#fff}
+  html[data-theme=light] .seg button[aria-pressed=true]{color:#fff}
+  .seg button:not(:last-child){border-right:1px solid var(--line2)}
+  .seg button kbd{font:10px ui-monospace,Consolas,monospace;opacity:.65}
+  .btn{background:var(--panel);color:var(--fg);border:1px solid var(--line2);border-radius:8px;
+    padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+  .btn:hover{border-color:var(--acc);color:var(--acc)}
+  .stage{background:var(--panel);border:1px solid var(--line2);border-radius:14px;
+    padding:14px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .stage svg{display:block;width:100%;height:auto;touch-action:none}
+  .hud{position:absolute;right:14px;top:12px;font:11px ui-monospace,Consolas,monospace;
+    color:var(--mut);background:color-mix(in srgb,var(--bg) 78%,transparent);
+    border:1px solid var(--line2);border-radius:7px;padding:4px 9px;pointer-events:none}
+  .grid2{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+  @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:14px}
+  .card h3{margin:0 0 10px;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat b{display:block;font-size:20px;font-family:ui-monospace,Consolas,monospace;color:var(--acc)}
+  .stat span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.09em}
+  .tip{position:fixed;z-index:40;pointer-events:none;opacity:0;transform:translateY(3px);
+    transition:opacity .12s;background:var(--panel);border:1px solid var(--line2);border-radius:9px;
+    padding:8px 11px;font-size:12.5px;box-shadow:var(--shadow);min-width:172px}
+  .tip.on{opacity:1}
+  .tip .d{font-family:ui-monospace,Consolas,monospace;color:var(--acc);font-weight:700}
+  .tip .n{font-size:11.5px;color:var(--mut)}
+  .ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;
+    font-size:12px;color:var(--mut)}
+  .ctrl label{display:flex;gap:8px;align-items:center}
+  input[type=range]{accent-color:var(--acc);width:150px}
+  .months{display:flex;gap:3px;align-items:flex-end;height:74px;margin-top:6px}
+  .months div{flex:1;background:var(--acc2);border-radius:3px 3px 0 0;min-height:2px;
+    position:relative;cursor:pointer;opacity:.85}
+  .months div:hover{opacity:1;background:var(--acc)}
+  .months div.act{background:var(--gold);opacity:1}
+  .months span{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);
+    font-size:9.5px;color:var(--dim)}
+  .rows{display:grid;gap:5px;font-size:12px;color:var(--mut)}
+  .rows .r{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center}
+  .rows .b{height:8px;background:var(--l0);border-radius:4px;overflow:hidden}
+  .rows .b i{display:block;height:100%;background:var(--acc2)}
+  .detail{margin-top:12px;font-size:12.5px;color:var(--mut);border-top:1px dashed var(--line2);padding-top:10px}
+  .detail b{color:var(--fg);font-family:ui-monospace,Consolas,monospace}
+  .note{font-size:11.5px;color:var(--dim);margin-top:10px}
+  .cell{cursor:pointer}
+  .cell:hover{stroke:var(--gold)!important;stroke-width:1.4!important}
+  .quiet{fill:none;stroke:var(--dim)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>contribution <span>lab</span></h1>
+  <p class="sub">four animated lenses over the same commit grid · everything here is interactive,
+     the README versions are the same drawings exported as plain SVG (GitHub runs CSS animation
+     inside <code>&lt;img&gt;</code>, but never scripts)</p>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="lens">
+      <button data-mode=night aria-pressed=true>★ night <kbd>1</kbd></button>
+      <button data-mode=climate aria-pressed=false>☂ climate <kbd>2</kbd></button>
+      <button data-mode=pulse aria-pressed=false>❤ pulse <kbd>3</kbd></button>
+      <button data-mode=life aria-pressed=false>◍ life <kbd>4</kbd></button>
+    </div>
+    <button class="btn" id=theme>◐ theme <kbd>T</kbd></button>
+    <button class="btn" id=replay>↻ replay <kbd>R</kbd></button>
+    <button class="btn" id=raw>↧ open the README svg</button>
+    <button class="btn" id=copy>⧉ copy README snippet</button>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <div class=stage>
+        <div class=hud id=hud>—</div>
+        <svg id=svg viewBox="0 0 914 236" role=img aria-label="interactive contribution grid"></svg>
+      </div>
+      <div class=ctrl>
+        <label>year position <input type=range id=scrub min=0 max=370 value=370 step=1></label>
+        <button class=btn id=toplay>▶ play the year</button>
+        <label id=spdwrap style="display:none">speed <input type=range id=speed min=4 max=40 value=17></label>
+        <button class=btn id=stepbtn style="display:none">⇥ step</button>
+        <button class=btn id=resetbtn style="display:none">⟲ reseed</button>
+      </div>
+      <p class=note>hover a day for the numbers · click to pin it · <kbd>←</kbd> <kbd>→</kbd> walk
+        the year · <kbd>space</kbd> play/pause the automaton</p>
+    </div>
+
+    <div>
+      <div class=card>
+        <h3>the year</h3>
+        <div class=stats id=stats></div>
+      </div>
+      <div class=card style="margin-top:14px">
+        <h3>commits per month <small style="text-transform:none;letter-spacing:0">(click to focus)</small></h3>
+        <div class=months id=months></div>
+        <div class=detail id=detail>pick a day to see its streak</div>
+      </div>
+      <div class=card style="margin-top:14px">
+        <h3>rhythm by weekday</h3>
+        <div class=rows id=weeks></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class=tip id=tip></div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const L=40,T=74,P=16,C=13,ROWS=7,WEEKS=53,H=236;
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+let DATA=null, WIN=[], mode='night', pinned=null, focusMonth=null, life=null, lifeTimer=null;
+
+function el(t,a,parent){const e=document.createElementNS(NS,t);
+  for(const k in a) e.setAttribute(k,a[k]); if(parent) parent.appendChild(e); return e}
+const lvlColor=['var(--l0)','var(--l1)','var(--l2)','var(--l3)','var(--l4)'];
+
+function buildWindow(days,todayISO){
+  const today=new Date(todayISO+'T00:00:00Z');
+  const start=new Date(today); start.setUTCDate(start.getUTCDate()-today.getUTCDay()-WEEKS*7+7);
+  const g=[];
+  for(let c=0;c<WEEKS;c++){const col=[];
+    for(let r=0;r<ROWS;r++){
+      const d=new Date(start); d.setUTCDate(start.getUTCDate()+c*7+r);
+      const iso=d.toISOString().slice(0,10);
+      const rec=days[iso];
+      col.push({iso,d,count:rec?rec.count:0,level:rec?rec.level:0,future:d>today});
+    } g.push(col)}
+  return g;
+}
+function flat(win,upto){const out=[];
+  win.forEach((col,c)=>col.forEach((d,r)=>{if(!d.future&&(upto==null||out.length<upto))out.push({...d,c,r})}));
+  return out}
+function runs(list){const out=[];let cur=[];
+  for(let i=0;i<list.length;i++){const a=list[i];
+    if(a.count>0&&cur.length&&(new Date(a.iso)-new Date(cur[cur.length-1].iso))/864e5===1) cur.push(a);
+    else{if(cur.length>1)out.push(cur);cur=a.count>0?[a]:[]}}
+  if(cur.length>1)out.push(cur);return out}
+
+/* ------------------------------ the stage ------------------------------ */
+function draw(){
+  const svg=document.getElementById('svg'); svg.innerHTML='';
+  const upto=+document.getElementById('scrub').value;
+  const all=flat(WIN), cut=all.slice(0,Math.max(1,upto));
+  const list=focusMonth?cut.filter(d=>d.d.getUTCMonth()===focusMonth):cut;
+  const shown=new Set(list.map(d=>d.iso));
+  const maxc=Math.max(1,...all.map(d=>d.count));
+
+  // grid
+  const g=el('g',{},svg);
+  all.forEach(d=>{
+    const on=shown.has(d.iso);
+    const rect=el('rect',{class:'cell',x:L+d.c*P,y:T+d.r*P,width:C,height:C,rx:3.4,
+      fill:lvlColor[Math.max(0,d.level)],stroke:'var(--line2)','stroke-width':.5,
+      opacity:d.future?.12:(on?1:.18),'data-iso':d.iso});
+    rect.addEventListener('mousemove',ev=>tip(ev,d));
+    rect.addEventListener('mouseleave',()=>hide());
+    rect.addEventListener('click',()=>pin(d));
+    if(d.iso===pinned){rect.setAttribute('stroke','var(--gold)');rect.setAttribute('stroke-width',2)}
+  });
+
+  // month rail
+  const m=el('g',{},svg); let last=null;
+  WIN.forEach((col,c)=>{const d=col[0].d;
+    if(d.getUTCMonth()!==last&&d.getUTCDate()<=7){last=d.getUTCMonth();
+      el('text',{x:L+c*P,y:T-12,'font-size':9.5,fill:'var(--mut)'},m)
+        .textContent=d.toLocaleString('en',{month:'short'});}});
+
+  if(mode==='night') paintNight(svg,list,maxc);
+  if(mode==='climate') paintClimate(svg,list,maxc);
+  if(mode==='pulse') paintPulse(svg,list,maxc);
+  if(mode==='life') paintLife(svg,list,maxc);
+  stats(all);
+  hud(list);
+}
+
+function tip(ev,d){
+  const t=document.getElementById('tip');
+  const streak=streakOf(d);
+  t.innerHTML=`<div class="d">${new Date(d.iso+'T00:00:00Z').toDateString('en-US')}</div>
+    <div><b>${d.count}</b> contribution${d.count===1?'':'s'} · level ${d.level}</div>
+    <div class="n">${DOW[d.d.getUTCDay()]} · col ${d.c + 1}/${WEEKS} · ${streak}</div>`;
+  t.classList.add('on');
+  const r=t.getBoundingClientRect();
+  t.style.left=Math.min(innerWidth-r.width-12,ev.clientX+14)+'px';
+  t.style.top=Math.max(8,ev.clientY-r.height-12)+'px';
+}
+function hide(){document.getElementById('tip').classList.remove('on')}
+function streakOf(d){
+  const all=flat(WIN); const i=all.findIndex(x=>x.iso===d.iso);
+  if(i<0) return '—';
+  let f=i; while(f+1<all.length&&all[f+1].count>0) f++;
+  let b=i; while(b-1>=0&&all[b-1].count>0) b--;
+  if(d.count>0) return `part of a ${f-b+1} day streak`;
+  let g=1; while(all[i-g]&&all[i-g].count===0)g++; let h=1; while(all[i+h]&&all[i+h].count===0)h++;
+  return `${g+h-2} day gap (${g-1} before, ${h-1} after)`;
+}
+function pin(d){pinned=d.iso; draw();
+  const all=flat(WIN), i=all.findIndex(x=>x.iso===d.iso);
+  let run=0,j=i; while(all[j]&&all[j].count>0){run++;j++}
+  let k=i-1; while(all[k]&&all[k].count>0){run++;k--}
+  document.getElementById('detail').innerHTML=
+    `<b>${d.iso}</b> · ${DOW[d.d.getUTCDay()]}<br>${d.count} commit${d.count===1?'':'s'} → level ${d.level}
+     · run around it: <b>${run}d</b> · ${Math.round(d.count/Math.max(1,all.reduce((s,x)=>s+x.count,0))*1e3)/10}‰ of the year`;
+}
+
+/* ------------------------------ night ------------------------------ */
+function paintNight(svg,list,maxc){
+  const g=el('g',{filter:'none'},svg);
+  const by={}; list.forEach(d=>by[d.iso]=d);
+  const cen=d=>[L+d.c*P+C/2,T+d.r*P+C/2];
+  for(let i=0;i<110;i++){const x=L+((i*97)%848),y=56+((i*61)%150);
+    const c=el('circle',{cx:x,cy:y,r:(i%3)*.35+.55,fill:'var(--acc)',opacity:.12},g);
+    c.style.animation=`tw ${(2.6+i%5)/1.4}s ease-in-out infinite`; c.style.animationDelay=(i*.13)+'s';}
+  runs(list).forEach(r=>{
+    const pts=[];
+    r.forEach((d,i)=>{ if(i&&d.c!==r[i-1].c) {flush(pts);pts.length=0} pts.push(cen(d).join(',')) });
+    flush(pts);
+    function flush(p){ if(p.length<2) return;
+      const pl=el('polyline',{points:p.join(' '),fill:'none',stroke:'var(--acc)','stroke-width':1.2,
+        opacity:.65,'stroke-linecap':'round'},svg);
+      pl.style.strokeDasharray=900; pl.style.animation='draw 9s ease-in-out infinite';}
+  });
+  list.filter(d=>d.count>0).forEach(d=>{
+    const [cx,cy]=cen(d), s=1.9+(d.count/maxc)*3.4;
+    el('circle',{cx,cy,r:s+3.4,fill:'var(--acc)',opacity:.16},svg);
+    el('circle',{cx,cy,r:s,fill:lvlColor[d.level]},svg);
+    if(d.count===maxc){for(let k=0;k<3;k++){
+      const c=el('circle',{cx,cy,r:2,fill:'none',stroke:'var(--gold)','stroke-width':1.3},svg);
+      c.style.animation=`nova 4.4s ${(k*1.5)}s ease-out infinite`;}
+      el('circle',{cx,cy,r:3,fill:'var(--fg)'},svg);
+      el('text',{x:cx,y:cy+24,'font-size':9,fill:'var(--gold)','text-anchor':'middle',
+        'font-family':'ui-monospace,monospace'},svg).textContent=`${d.count} commits · ${d.iso}`;}});
+  for(let k=0;k<3;k++){
+    const m=el('g',{},svg);
+    el('path',{d:`M960 ${70+k*46} l-84 27`,stroke:'var(--sky)','stroke-width':1.3,'stroke-linecap':'round',
+      opacity:.75,fill:'none'},m);
+    m.style.animation=`fly ${10+k}s linear infinite`; m.style.animationDelay=(k*3.4)+'s';}
+}
+
+/* ------------------------------ climate ------------------------------ */
+function paintClimate(svg,list){
+  const weekly=[]; WIN.forEach((col,c)=>weekly.push(col.reduce((s,d)=>s+(d.future?0:d.count),0)));
+  const g=el('g',{},svg);
+  weekly.forEach((v,c)=>{ if(v>0) return;
+    for(let j=0;j<4;j++){
+      const x=L+c*P+1.5+((j*5+c*3)%(C+1)), y0=T-16;
+      const ln=el('line',{x1:x,y1:y0,x2:x-1.4,y2:y0-7,stroke:'var(--sky)','stroke-width':1.1},g);
+      ln.style.animation=`drop ${1.4+((j*3+c)%10)*.12}s linear ${((j*1.3+c*.7)%3)}s infinite`;}});
+  for(let k=0;k<5;k++){
+    const gg=el('g',{},g);
+    el('ellipse',{cx:0,cy:62+k*30,rx:90+k*22,ry:15,fill:'var(--acc)',opacity:.1},gg);
+    gg.style.animation=`drift ${40+k*16}s linear ${-k*9}s infinite`;}
+  list.filter(d=>d.level>=4).forEach(d=>{
+    const cx=L+d.c*P+C/2, cy=T+d.r*P+C/2;
+    const gg=el('g',{},g); gg.style.transformOrigin=`${cx}px ${cy}px`;
+    gg.style.animation='spin 9s linear infinite';
+    el('circle',{cx,cy,r:5.5,fill:'var(--gold)',opacity:.3},gg);
+    for(let a=0;a<8;a++){const an=a*Math.PI/4;
+      el('line',{x1:cx+Math.cos(an)*7,y1:cy+Math.sin(an)*7,x2:cx+Math.cos(an)*15,y2:cy+Math.sin(an)*15,
+        stroke:'var(--gold)','stroke-width':1.3},gg)}});
+  const all=flat(WIN);
+  all.forEach((d,i)=>{ if(d.count) return;
+    let b=0; for(let j=i-1;j>=0&&all[j].count>0;j--)b++;
+    if(b<3) return;
+    const cx=L+d.c*P+C/2, cy=T+d.r*P+C;
+    const p=el('path',{d:`M${cx} ${T-4} l-6 ${(cy-T)*.45} l7 0 l-7 ${(cy-T)*.4} l13 ${-(cy-T)*.5} l-9 0 l8 ${-(cy-T)*.3} z`,
+      fill:'var(--gold)'},g);
+    p.style.animation=`strike 7s ${((i*.37)%7)}s steps(1,end) infinite`; p.style.opacity=0;});
+}
+
+/* ------------------------------ pulse ------------------------------ */
+function paintPulse(svg,list,maxc){
+  const all=flat(WIN), i0=Math.max(1,all.indexOf(all.find(d=>d.iso===list[0]?.iso))||0);
+  const g=el('g',{},svg), mid=T+ROWS*P/2, amp=52, sx=(914-66)/Math.max(1,all.length);
+  void i0;
+  let dstr=`M${L} ${mid}`, peaks=[];
+  all.forEach((d,i)=>{ const x=L+(i+.5)*sx;
+    if(d.count<=0){dstr+=` L${x} ${mid}`;return}
+    const a=.3+.7*Math.min(1,d.count/maxc), wd=Math.max(1.1,Math.min(2.6,sx*.4));
+    dstr+=` L${x-wd*1.6} ${mid} L${x-wd*.5} ${mid+a*6} L${x} ${mid-a*amp} L${x+wd*.7} ${mid+a*20} L${x+wd*1.7} ${mid}`;
+    peaks.push({x,y:mid-a*amp,c:d.count,iso:d.iso});});
+  const base=el('path',{d:dstr,pathLength:1000,fill:'none',stroke:'var(--acc)','stroke-width':1.7,
+    opacity:.6,'stroke-linejoin':'round'},svg);
+  base.style.animation='dash 6.8s ease-in-out infinite alternate';
+  const lead=el('path',{d:dstr,pathLength:1000,fill:'none',stroke:'var(--fg)','stroke-width':2.6,
+    opacity:.95,'stroke-linecap':'round'},svg);
+  lead.setAttribute('stroke-dasharray','26 1000'); lead.style.animation='sweep 6.8s linear infinite';
+  peaks.sort((a,b)=>b.c-a.c).slice(0,3).forEach(p=>{
+    el('circle',{cx:p.x,cy:p.y,r:4.5,fill:'none',stroke:'var(--acc)'},svg);
+    el('text',{x:p.x,y:p.y+13,'font-size':8.5,fill:'var(--acc)','text-anchor':'middle',
+      'font-family':'ui-monospace,monospace'},svg).textContent=p.c;});
+  const h=el('path',{d:`M${L-24} ${T-22} c-2.6 -3.4 1.8 -7 4.4 -3.4 c2.6 -3.6 7 0 4.4 3.4 l-4.4 5.2 z`,
+    fill:'var(--acc)'},svg);
+  h.style.animation='blink 1.15s steps(1,end) infinite';
+}
+
+/* ------------------------------ life ------------------------------ */
+function step_(cells,W,WEEKS_,ROWS_){const n={};
+  cells.forEach(([c,r])=>{for(let dc=-1;dc<=1;dc++)for(let dr=-1;dr<=1;dr++){
+    if(!dc&&!dr)continue;const k=((c+dc)%W+ (c+dc<0?W:0))%W, m=(r+dr+ROWS_)%ROWS_;
+    const key=k+':'+m; n[key]=(n[key]||0)+1}});
+  const has=new Set(cells.map(x=>x[0]+':'+x[1])); const out=[];
+  for(const k in n){const [c,r]=k.split(':').map(Number);
+    if(n[k]===3||(n[k]===2&&has.has(k))) out.push([c,r])}
+  return out}
+function paintLife(svg,list){
+  if(!life) life={gen:0,cells:list.filter(d=>d.count>0).map(d=>[d.c,d.r]),seed:null};
+  if(!life.seed) life.seed=life.cells.slice();
+  const g=el('g',{},svg);
+  life.seed.forEach(([c,r])=>el('rect',{x:L+c*P-1.5,y:T+r*P-1.5,width:C+3,height:C+3,rx:4.5,
+    fill:'none',stroke:'var(--dim)','stroke-width':.7,opacity:.55},g));
+  const seedSet=new Set(life.seed.map(x=>x[0]+':'+x[1]));
+  life.cells.forEach(([c,r])=>{
+    const on=seedSet.has(c+':'+r);
+    el('rect',{x:L+c*P,y:T+r*P,width:C,height:C,rx:3.4,fill:on?'var(--acc)':'var(--acc2)',
+      opacity:on?1:.45,class:'life'},g)});
+  document.getElementById('spdwrap').style.display='';
+  document.getElementById('stepbtn').style.display='';
+  document.getElementById('resetbtn').style.display='';
+  if(!lifeTimer && !matchMedia('(prefers-reduced-motion: reduce)').matches) playLife();
+}
+function playLife(){stopLife();
+  lifeTimer=setInterval(()=>{lifeTick()},41-+document.getElementById('speed').value)}
+function stopLife(){if(lifeTimer)clearInterval(lifeTimer);lifeTimer=null}
+function lifeTick(){
+  life.gen++;
+  life.cells=step_(life.cells,WEEKS,0,ROWS);
+  if(!life.cells.length){life.cells=life.seed.slice();life.gen=0}
+  draw();
+}
+function paintOthersOff(){
+  document.getElementById('spdwrap').style.display='none';
+  document.getElementById('stepbtn').style.display='none';
+  document.getElementById('resetbtn').style.display='none';
+  stopLife();
+}
+
+/* ------------------------------ chrome ------------------------------ */
+function stats(all){
+  const past=all.filter(d=>!d.future);
+  const total=past.reduce((s,d)=>s+d.count,0), active=past.filter(d=>d.count>0).length;
+  let best=0,cur=0,prev=null;
+  past.forEach(d=>{ if(d.count>0){cur=(prev&&(d.d-prev)/864e5===1)?cur+1:1;best=Math.max(best,cur);prev=d.d}
+    else{cur=0;prev=null}});
+  const quiet=(()=>{let m=0,r=0;past.forEach(d=>{r=d.count?0:r+1;m=Math.max(m,r)});return m})();
+  const top=past.slice().sort((a,b)=>b.count-a.count)[0]||{iso:'-',count:0};
+  document.getElementById('stats').innerHTML=[
+    ['commits',total],['active days',active],['longest streak',best+'d'],
+    ['quietest gap',quiet+'d'],['best day',top.count+'·'+top.iso.slice(5)],['rate /wk',
+     Math.round(total/past.length*70)/10]].map(([k,v])=>
+    `<div class=stat><b>${v}</b><span>${k}</span></div>`).join('');
+  const mo={}; past.forEach(d=>{const k=d.d.getUTCMonth();mo[k]=(mo[k]||0)+d.count});
+  const mx=Math.max(1,...Object.values(mo)), names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const first=past.length?past[0].d.getUTCMonth():0;
+  document.getElementById('months').innerHTML=names.map((nm,i)=>{
+    const v=mo[i]||0; return `<div data-m="${i}" class="${focusMonth===i?'act':''}"
+      title="${nm}: ${v}" style="height:${Math.max(2,v/mx*62)}px"><span>${nm[0]}</span></div>`}).join('');
+  document.querySelectorAll('#months div').forEach(d=>d.onclick=()=>{
+    const m=+d.dataset.m; focusMonth=(focusMonth===m?null:m); draw()});
+  const wd=[0,0,0,0,0,0,0]; past.forEach(d=>wd[d.d.getUTCDay()]+=d.count);
+  const wmax=Math.max(1,...wd);
+  document.getElementById('weeks').innerHTML=DOW.map((n,i)=>
+    `<div class=r><span>${n}</span><span class=b><i style="width:${wd[i]/wmax*100}%"></i></span>
+     <span style="text-align:right;font-family:ui-monospace,monospace">${wd[i]}</span></div>`).join('');
+}
+function hud(list){
+  const total=list.reduce((s,d)=>s+d.count,0), days=list.filter(d=>d.count>0).length;
+  const label={night:'star chart',climate:'climate',pulse:'ecg',life:'automaton'}[mode];
+  document.getElementById('hud').textContent=
+    `${label} · ${total} commits · ${days} lit · gen ${life?life.gen:'—'}`;
+}
+
+/* ------------------------------ boot ------------------------------ */
+const css=document.createElement('style');
+css.textContent=`
+@keyframes tw{0%,100%{opacity:.05}50%{opacity:.45}}
+@keyframes draw{0%{stroke-dashoffset:900;opacity:0}8%{opacity:.65}42%{stroke-dashoffset:0}
+  80%{stroke-dashoffset:0;opacity:.65}100%{stroke-dashoffset:-900;opacity:0}}
+@keyframes nova{0%{r:2;opacity:.85}70%{opacity:.15}100%{r:30;opacity:0}}
+@keyframes fly{from{transform:translate(0,0)}to{transform:translate(-1140px,388px)}}
+@keyframes drop{0%{transform:translateY(0);opacity:0}14%{opacity:.8}78%{opacity:.5}
+  100%{transform:translateY(150px);opacity:0}}
+@keyframes drift{from{transform:translateX(-180px)}to{transform:translateX(1080px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes strike{0%,92%{opacity:0}93%{opacity:1}94.5%{opacity:.1}96%{opacity:.9}100%{opacity:0}}
+@keyframes dash{0%{stroke-dashoffset:1000}62%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes sweep{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
+@keyframes blink{0%,42%{opacity:1}50%,100%{opacity:.12}}
+.life{transform-box:fill-box;transform-origin:center;animation:pop .42s ease-out}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}`;
+document.head.appendChild(css);
+
+async function boot(){
+  try{ const r=await fetch('assets/contributions.json'); DATA=await r.json(); }
+  catch(e){ document.getElementById('hud').textContent='no assets/contributions.json — run: python3 scripts/contribgraph.py --user <you>';
+    DATA={days:{},stats:{today:new Date().toISOString().slice(0,10)}};
+    for(let i=0;i<400;i++){const d=new Date();d.setUTCDate(d.getUTCDate()-i);
+      if(Math.random()<.28) DATA.days[d.toISOString().slice(0,10)]={count:1+Math.floor(Math.random()*9),level:3}}}
+  WIN=buildWindow(DATA.days,DATA.stats.today||new Date().toISOString().slice(0,10));
+  document.getElementById('scrub').max=flat(WIN).length;
+  document.getElementById('scrub').value=flat(WIN).length;
+  draw();
+}
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  mode=b.dataset.mode; if(mode!=='life') paintOthersOff(); else life=null; draw()});
+document.getElementById('theme').onclick=()=>{
+  const l=document.documentElement.dataset.theme==='light';
+  document.documentElement.dataset.theme=l?'dark':'light'};
+document.getElementById('replay').onclick=()=>{draw()};
+document.getElementById('scrub').oninput=()=>{clearTimeout(window._s);window._s=setTimeout(draw,60)};
+document.getElementById('speed').oninput=()=>{if(lifeTimer)playLife()};
+document.getElementById('stepbtn').onclick=()=>{stopLife();lifeTick()};
+document.getElementById('resetbtn').onclick=()=>{life=null;draw()};
+document.getElementById('toplay').onclick=()=>{
+  const s=document.getElementById('scrub'); s.value=0;
+  const t=setInterval(()=>{s.value=+s.value+1;draw();
+    if(+s.value>=+s.max){clearInterval(t);s.value=s.max;draw()}},22)};
+document.getElementById('raw').onclick=()=>{
+  location.href=`assets/graph-${mode}-dark.svg`};
+document.getElementById('copy').onclick=async()=>{
+  const snip=`<picture>
+  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-${mode}-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/graph-${mode}-light.svg">
+  <img src="assets/graph-${mode}-dark.svg" width="100%" alt="${mode} contribution graph">
+</picture>`;
+  try{await navigator.clipboard.writeText(snip);
+    document.getElementById('copy').textContent='✓ copied'}
+  catch(e){prompt('copy this:',snip)}
+  setTimeout(()=>document.getElementById('copy').textContent='⧉ copy README snippet',1400)};
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  const map={'1':'night','2':'climate','3':'pulse','4':'life'};
+  if(map[k]){document.querySelector(`.seg button[data-mode=${map[k]}]`).click()}
+  if(k==='t')document.getElementById('theme').click();
+  if(k==='r')document.getElementById('replay').click();
+  if(k===' '&&mode==='life'){e.preventDefault();lifeTimer?stopLife():playLife()}
+  if(k==='arrowright'||k==='arrowleft'){
+    const all=flat(WIN); let i=all.findIndex(d=>d.iso===pinned);
+    if(i<0)i=all.length-1; i=Math.max(0,Math.min(all.length-1,i+(k==='arrowright'?1:-1)));
+    pin(all[i]);}
+});
+boot();
+</script>
+</body>
+</html>
