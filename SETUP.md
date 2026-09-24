@@ -85,10 +85,11 @@ python scripts/contribgraph.py --user ssambit635-svg --modes life --weeks 40 --n
 # rebuild from the cached grid only (offline)
 python scripts/contribgraph.py --offline --json assets/contributions.json --out assets
 ```
-Lenses: `night` (stars + constellations + a nova on your best day), `climate` (rain on dry weeks,
-solar flares on level-4 days, lightning where a streak died), `pulse` (ECG, one beat per day,
-gaps as flatlines), `life` (Conway's B3/S23 on a toroidal grid, seeded by real commit days, loops
-and reseeds when it dies out). Every animation is plain CSS inside the SVG - which is the only
+Lenses: `night` (stars + constellations + a nova on your best day), **`climate`** (rain on dry
+weeks with ripples where the drops land, snow over a quiet Nov-Feb, corona + heat shimmer on level-4
+days, a thunderstorm on the day a 3+ day streak died, cirrus wind whose speed is your weekly rate,
+and a monthly rain-gauge strip), `pulse` (ECG, one beat per day, gaps as flatlines), `life` (Conway's
+B3/S23 on a toroidal grid, seeded by real commit days, loops and reseeds when it dies out). Every animation is plain CSS inside the SVG - which is the only
 kind GitHub's `<img>` will run - and each file ships a `prefers-reduced-motion` off-switch.
 
 Then open `lab.html` through any static server for the interactive version:

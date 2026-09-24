@@ -107,27 +107,29 @@ Hi, I'm **Sambit Swain** — a developer from **Berhampur, Odisha** with a **nig
 
 <div align="center">
 
-## `~/` contribution lab
+## `~/` contribution climate
 
-<!-- Same commit grid, four lenses. Drawn by scripts/contribgraph.py from live
-     data (.github/workflows/graph.yml, daily). The motion is pure CSS *inside*
-     the SVG, because that is the only kind of animation GitHub's <img> tag runs
-     - no JS, no iframes, still alive. Click a lens below to swap it. -->
+<!-- The flagship lens, drawn by scripts/contribgraph.py straight from the live
+     calendar (.github/workflows/graph.yml, daily). Your commit history *is* the
+     weather: dry weeks get rain, a quiet Nov-Feb gets snow, level-4 days burn,
+     and a thunderstorm sits on the exact day a streak died. Monthly rainfall is
+     the gauge under the grid. All motion is CSS inside the SVG - the only kind
+     GitHub's <img> tag runs - and it switches itself off for prefers-reduced-motion. -->
+
+<picture>
+  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-climate-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/graph-climate-light.svg">
+  <img src="assets/graph-climate-dark.svg" width="100%" alt="contribution climate: rain on dry weeks, snow over a quiet winter, solar flares on the hottest days, lightning on the day a streak died, and a monthly rain gauge under the grid">
+</picture>
+
+<details>
+<summary><b>other lenses</b> — star chart · ECG · cellular automaton</summary>
+<br>
 
 <picture>
   <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-night-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/graph-night-light.svg">
   <img src="assets/graph-night-dark.svg" width="100%" alt="the year as a star chart: stars are commit days, streaks are constellations, the best day goes nova">
-</picture>
-
-<details open>
-<summary><b>switch lens</b> — star chart · climate · ECG · cellular automaton</summary>
-<br>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-climate-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/graph-climate-light.svg">
-  <img src="assets/graph-climate-dark.svg" width="100%" alt="contribution climate: rain on dry weeks, flares on big days, lightning where a streak died">
 </picture>
 
 <br>
@@ -148,7 +150,7 @@ Hi, I'm **Sambit Swain** — a developer from **Berhampur, Odisha** with a **nig
 
 <br>
 
-<sub>The whole thing is <b>interactive</b> in the
+<sub>Every lens is <b>interactive</b> in the
 <a href="https://ssambit635-svg.github.io/Ssambit635-svg/lab.html">contribution lab</a> —
 hover any day for its numbers, scrub through the year, step the automaton frame by frame.</sub>
 

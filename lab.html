@@ -174,6 +174,7 @@ function runs(list){const out=[];let cur=[];
 /* ------------------------------ the stage ------------------------------ */
 function draw(){
   const svg=document.getElementById('svg'); svg.innerHTML='';
+  svg.setAttribute('viewBox',`0 0 914 ${mode==='climate'?266:236}`);
   const upto=+document.getElementById('scrub').value;
   const all=flat(WIN), cut=all.slice(0,Math.max(1,upto));
   const list=focusMonth?cut.filter(d=>d.d.getUTCMonth()===focusMonth):cut;
@@ -274,33 +275,80 @@ function paintNight(svg,list,maxc){
 
 /* ------------------------------ climate ------------------------------ */
 function paintClimate(svg,list){
-  const weekly=[]; WIN.forEach((col,c)=>weekly.push(col.reduce((s,d)=>s+(d.future?0:d.count),0)));
   const g=el('g',{},svg);
-  weekly.forEach((v,c)=>{ if(v>0) return;
-    for(let j=0;j<4;j++){
-      const x=L+c*P+1.5+((j*5+c*3)%(C+1)), y0=T-16;
-      const ln=el('line',{x1:x,y1:y0,x2:x-1.4,y2:y0-7,stroke:'var(--sky)','stroke-width':1.1},g);
-      ln.style.animation=`drop ${1.4+((j*3+c)%10)*.12}s linear ${((j*1.3+c*.7)%3)}s infinite`;}});
-  for(let k=0;k<5;k++){
+  const all=flat(WIN), rate=all.reduce((a,b)=>a+b.count,0)/Math.max(1,all.length)*7;
+  const ground=T+ROWS*P-1;
+  const weekly=[]; WIN.forEach((col,c)=>weekly.push(col.reduce((a,d)=>a+(d.future?0:d.count),0)));
+  const dry=[], wet=[]; weekly.forEach((v,c)=>{v===0?dry.push(c):v>=3&&wet.push(c)});
+  const rainCols=dry.filter((_,i)=>i%Math.max(1,Math.floor(dry.length/18))===0).slice(0,18);
+
+  // cirrus: streaks whose speed is the weekly commit rate
+  for(let i=0;i<3;i++){
     const gg=el('g',{},g);
-    el('ellipse',{cx:0,cy:62+k*30,rx:90+k*22,ry:15,fill:'var(--acc)',opacity:.1},gg);
-    gg.style.animation=`drift ${40+k*16}s linear ${-k*9}s infinite`;}
-  list.filter(d=>d.level>=4).forEach(d=>{
-    const cx=L+d.c*P+C/2, cy=T+d.r*P+C/2;
-    const gg=el('g',{},g); gg.style.transformOrigin=`${cx}px ${cy}px`;
-    gg.style.animation='spin 9s linear infinite';
-    el('circle',{cx,cy,r:5.5,fill:'var(--gold)',opacity:.3},gg);
+    el('path',{d:`M0 ${T-33+i*7} h${120+i*60} q14 0 10 -4`,fill:'none',stroke:'var(--sky)',
+      'stroke-width':.9,opacity:.12-i*.02},gg);
+    const dur=Math.max(9,46-rate*2.2+i*7);
+    gg.style.animation=`drift ${dur}s linear infinite`; gg.style.animationDelay=`${-dur/3*i}s`;}
+
+  rainCols.forEach((c,k)=>{
+    for(let j=0;j<4;j++){
+      const x=L+c*P+1.5+((j*5+k*3)%(C+1)), y0=T-18;
+      const ln=el('line',{x1:x,y1:y0,x2:x-1.4,y2:y0-7,stroke:'var(--sky)','stroke-width':1,opacity:.75},g);
+      ln.style.animation=`drop ${1.4+((j*3+k)%10)*.12}s linear ${((j*1.31+k*.73)%3.2)}s infinite`;}
+    const sp=el('ellipse',{cx:L+c*P+C/2,cy:ground+2,rx:4,ry:1.6,fill:'none',stroke:'var(--sky)',
+      'stroke-width':.9},g);
+    sp.style.animation=`splash 1.9s ease-out infinite`; sp.style.animationDelay=`${(k*.37)%1.9}s`;});
+
+  // snow on the quiet Nov-Feb days
+  all.filter(d=>d.count===0&&[10,11,0,1].includes(d.d.getUTCMonth())).forEach((d,i)=>{
+    const f=el('circle',{cx:L+d.c*P+C/2,cy:T+d.r*P+C/2,r:1.1,fill:'var(--sky)',opacity:.55},g);
+    f.style.animation=`flake ${7+(i%6)*1.3}s linear infinite`;
+    f.style.animationDelay=`${-((i*.41)%9)}s`;});
+
+  // storms on the day a 3+ day streak died; lightning lights the cloud
+  let runLen=0;
+  all.forEach((d,i)=>{
+    if(d.count>0){runLen++;return}
+    if(runLen>=3){
+      const cx=L+d.c*P+C/2, cy=T+d.r*P+C, dl=(i*.37)%7;
+      el('ellipse',{cx,cy:T-11,rx:22,ry:7,fill:'var(--dim)',opacity:.45},g);
+      el('ellipse',{cx:cx+9,cy:T-15,rx:12,ry:5,fill:'var(--dim)',opacity:.35},g);
+      const lit=el('circle',{cx,cy:T-11,r:26,fill:'var(--gold)',opacity:.06},g);
+      lit.style.animation='glow 7s steps(1,end) infinite'; lit.style.animationDelay=dl+'s';
+      const p2=el('path',{d:`M${cx} ${T-4} l-6 ${(cy-T)*.45} l7 0 l-7 ${(cy-T)*.4} l13 ${-(cy-T)*.5}`
+        +` l-9 0 l8 ${-(cy-T)*.3} z`,fill:'var(--gold)'},g);
+      p2.style.animation='strike 7s steps(1,end) infinite'; p2.style.animationDelay=dl+'s';
+      const fl=el('ellipse',{cx,cy,rx:44,ry:27,fill:'var(--gold)',opacity:0},g);
+      fl.style.animation='zap 7s steps(1,end) infinite'; fl.style.animationDelay=dl+'s';}
+    runLen=0;});
+
+  all.filter(d=>d.level>=4).forEach(d=>{
+    const cx=L+d.c*P+C/2, cy=T+d.r*P+C/2, gg=el('g',{},g);
     for(let a=0;a<8;a++){const an=a*Math.PI/4;
       el('line',{x1:cx+Math.cos(an)*7,y1:cy+Math.sin(an)*7,x2:cx+Math.cos(an)*15,y2:cy+Math.sin(an)*15,
-        stroke:'var(--gold)','stroke-width':1.3},gg)}});
-  const all=flat(WIN);
-  all.forEach((d,i)=>{ if(d.count) return;
-    let b=0; for(let j=i-1;j>=0&&all[j].count>0;j--)b++;
-    if(b<3) return;
-    const cx=L+d.c*P+C/2, cy=T+d.r*P+C;
-    const p=el('path',{d:`M${cx} ${T-4} l-6 ${(cy-T)*.45} l7 0 l-7 ${(cy-T)*.4} l13 ${-(cy-T)*.5} l-9 0 l8 ${-(cy-T)*.3} z`,
-      fill:'var(--gold)'},g);
-    p.style.animation=`strike 7s ${((i*.37)%7)}s steps(1,end) infinite`; p.style.opacity=0;});
+        stroke:'var(--gold)','stroke-width':1.3},gg)}
+    gg.style.transformOrigin=`${cx}px ${cy}px`; gg.style.animation='spin 9s linear infinite';
+    const sh=el('rect',{x:L+d.c*P-3,y:cy-26,width:C+6,height:28,rx:3,fill:'var(--gold)',opacity:0},g);
+    sh.style.animation='shimmer 2.6s ease-in-out infinite';});
+
+  // rain gauge: commits per month
+  const mo={}; all.forEach(d=>{const k=d.d.getUTCFullYear()*100+d.d.getUTCMonth();
+    mo[k]=(mo[k]||0)+d.count});
+  const keys=Object.keys(mo).map(Number).sort(), mx=Math.max(1,...keys.map(k=>mo[k]));
+  const base=T+ROWS*P+36, sw=(914-L-26)/Math.max(1,keys.length);
+  el('line',{x1:L,y1:base,x2:914-26,y2:base,stroke:'var(--line2)','stroke-width':.7},g);
+  keys.forEach((k,i)=>{
+    const v=mo[k], bh=3+(v/mx)*16, x=L+i*sw, yr=Math.floor(k/100), mon=k%100;
+    el('rect',{x,y:base-bh,width:Math.max(2,sw-4),height:bh,rx:2.5,fill:'var(--acc)',
+      opacity:v>=mx*.6?.95:.45},g);
+    const lab=el('text',{x:x+1,y:base+9,'font-size':7,fill:'var(--dim)'},g);
+    lab.textContent=new Date(yr,mon,1).toLocaleString('en',{month:'short'})
+      +((mon===0||mon===6)?` ’${String(yr).slice(2)}`:'');
+    if(v){const t2=el('text',{x:x+(sw-4)/2,y:base-bh-3,'font-size':6.5,fill:'var(--mut)',
+      'text-anchor':'middle'},g); t2.textContent=v}});
+  const cap=el('text',{x:L,y:base+22,'font-size':8,fill:'var(--dim)'},g);
+  cap.textContent=`rain gauge · ${keys.length} months · wind ${Math.round(rate*10)/10}/wk · `
+    +`${dry.length} dry weeks · ${wet.length} wet weeks`;
 }
 
 /* ------------------------------ pulse ------------------------------ */
@@ -416,6 +464,13 @@ css.textContent=`
 @keyframes drop{0%{transform:translateY(0);opacity:0}14%{opacity:.8}78%{opacity:.5}
   100%{transform:translateY(150px);opacity:0}}
 @keyframes drift{from{transform:translateX(-180px)}to{transform:translateX(1080px)}}
+@keyframes splash{0%,70%{opacity:0;transform:scale(.35)}76%{opacity:.55}100%{opacity:0;transform:scale(1.5)}}
+@keyframes flake{0%{transform:translate(-3px,-150px);opacity:0}14%{opacity:.7}
+  55%{transform:translate(4px,-60px);opacity:.55}86%{transform:translate(0,3px);opacity:.75}
+  100%{transform:translate(0,5px);opacity:0}}
+@keyframes zap{0%,92%{opacity:0}93%{opacity:.2}94.5%{opacity:.05}96%{opacity:.16}100%{opacity:0}}
+@keyframes glow{0%,90%{opacity:.06}93%{opacity:.55}96%{opacity:.14}100%{opacity:.06}}
+@keyframes shimmer{0%,100%{opacity:0}50%{opacity:.11}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes strike{0%,92%{opacity:0}93%{opacity:1}94.5%{opacity:.1}96%{opacity:.9}100%{opacity:0}}
 @keyframes dash{0%{stroke-dashoffset:1000}62%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}

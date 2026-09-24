@@ -282,20 +282,22 @@ def month_labels(grid, w, theme, t=None):
     return "".join(out)
 
 
-def footer(w, h, theme, text, t=None, swatch=None):
+def footer(w, h, theme, text, t=None, swatch=None, legend=True):
+    """caption on the left, the less/more ramp on the right, pinned to the panel floor"""
     t = t or THEMES[theme]
-    y = TOP + ROWS * PITCH + 26
-    legend = []
-    legend.append(f'<text x="{n(LEFT)}" y="{n(y + 4)}" font-size="9.5" fill="{t["dim"]}">{esc(text)}</text>')
+    y = h - 20
+    out = [f'<text x="{n(LEFT)}" y="{n(y + 4)}" font-size="9.5" fill="{t["dim"]}">{esc(text)}</text>']
+    if not legend:
+        return "".join(out)
     lx = w - PAD_R - 130
-    legend.append(f'<text x="{n(lx - 8)}" y="{n(y + 3)}" font-size="9" fill="{t["dim"]}" '
-                  f'text-anchor="end">less</text>')
+    out.append(f'<text x="{n(lx - 8)}" y="{n(y + 3)}" font-size="9" fill="{t["dim"]}" '
+               f'text-anchor="end">less</text>')
     for i, col in enumerate(swatch or LEVELS[theme]):
-        legend.append(f'<rect x="{n(lx + i * 18)}" y="{n(y - 7)}" width="13" height="13" rx="3" '
-                      f'fill="{col}" stroke="{t["grid"]}" stroke-width=".5"/>')
-    legend.append(f'<text x="{n(lx + 5 * 18 + 6)}" y="{n(y + 3)}" font-size="9" '
-                  f'fill="{t["dim"]}">more</text>')
-    return "".join(legend)
+        out.append(f'<rect x="{n(lx + i * 18)}" y="{n(y - 7)}" width="13" height="13" rx="3" '
+                   f'fill="{col}" stroke="{t["grid"]}" stroke-width=".5"/>')
+    out.append(f'<text x="{n(lx + 5 * 18 + 6)}" y="{n(y + 3)}" font-size="9" '
+               f'fill="{t["dim"]}">more</text>')
+    return "".join(out)
 
 
 def base_grid(grid, theme, opacity=1.0, rx=3.2, sweep=0.0, cls="cell", skip_active=False, mode=""):
@@ -520,28 +522,58 @@ def render_night(grid, theme, stats, user, weeks, anim=True):
 # --------------------------------------------------------------------------- #
 
 def render_climate(grid, theme, stats, user, weeks, anim=True):
+    """a living weather system over the grid - the flagship lens.
+
+    everything is derived from the real calendar:
+      rain    weeks with zero commits, plus a ripple where the drops land
+      snow    quiet days in Nov-Feb, so a winter break finally looks like one
+      flare   your hottest days (level 4) get a corona and heat shimmer
+      storm   the exact day a 3+ day streak died: cloud, bolt, ground flash
+      wind    sky puffs over your wettest (busiest) weeks
+      lamp    a sun crossing the panel on a slow arc, marking the year
+      gauge   commits per month, drawn as a rainfall strip under the grid
+    """
     t = THEMES[theme]
     w = LEFT + weeks * PITCH + PAD_R
-    h = TOP + ROWS * PITCH + PAD_B
     ground = TOP + ROWS * PITCH - 1
-    fall = ground - TOP + 30
+    strip_y = ground + 16
+    h = TOP + ROWS * PITCH + 94
+    fall = ground - TOP + 34
     past = past_days(grid)
 
     weekly = [sum(d["count"] for d in col if not d["future"]) for col in grid]
     dry = [i for i, v in enumerate(weekly) if v == 0]
-    chosen = dry[:: max(1, len(dry) // 16)][:16]
+    wet = [i for i, v in enumerate(weekly) if v >= 3]
+    rain_cols = dry[:: max(1, len(dry) // 18)][:18]
 
-    rain = []
-    for k, c in enumerate(chosen):
+    # ---------------- rain, and the ripple it makes ----------------
+    rain, splash = [], []
+    for k, c in enumerate(rain_cols):
         for j in range(4):
             x = LEFT + c * PITCH + 1.5 + ((j * 5 + k * 3) % (CELL + 1))
             dur = 1.35 + ((j * 3 + k) % 10) * 0.13
             delay = (j * 1.31 + k * 0.73) % 3.2
             y0 = TOP - 18 if anim else TOP + ((j * 31 + k * 17) % max(20, int(fall) - 34))
             rain.append(f'<line class="drop" x1="{n(x)}" y1="{n(y0)}" x2="{n(x - 1.4)}" '
-                        f'y2="{n(y0 - 7)}" stroke="{t["sky"]}" stroke-width="1.1" '
+                        f'y2="{n(y0 - 7)}" stroke="{t["sky"]}" stroke-width="1" opacity=".75" '
                         f'style="animation-duration:{n(dur)}s;animation-delay:{n(delay)}s"/>')
+        rx = LEFT + c * PITCH + CELL / 2
+        splash.append(f'<ellipse class="splash" cx="{n(rx)}" cy="{n(ground + 2)}" rx="4" ry="1.6" '
+                      f'fill="none" stroke="{t["sky"]}" stroke-width=".9" opacity="0" '
+                      f'style="animation-delay:{n((k * 0.37) % 1.9)}s"/>')
 
+    # ---------------- snow over a quiet winter ----------------
+    snow = []
+    winter = [(c, r, d) for c, r, d in past if d["count"] == 0 and d["date"].month in (11, 12, 1, 2)]
+    for i, (c, r, d) in enumerate(winter[:70]):
+        dur = 7 + (i % 6) * 1.3
+        fy = TOP + r * PITCH + CELL / 2
+        x = LEFT + c * PITCH + CELL / 2
+        snow.append(f'<circle class="flake" cx="{n(x)}" cy="{n(fy)}" r="1.1" '
+                    f'fill="{t["sky"]}" opacity=".55" '
+                    f'style="animation-duration:{n(dur)}s;animation-delay:{n(-(i * 0.41) % 9)}s"/>')
+
+    # ---------------- clouds and wind ----------------
     clouds = []
     for y, sp, op, wd, delay in ((58, 42, 0.17, 180, 0), (98, 64, 0.12, 250, -18),
                                  (146, 84, 0.10, 320, -40), (184, 56, 0.11, 200, -10)):
@@ -551,6 +583,17 @@ def render_climate(grid, theme, stats, user, weeks, anim=True):
                       f'<ellipse cx="{n(wd * 0.18)}" cy="{n(y - 9)}" rx="{n(wd / 3.4)}" ry="11" '
                       f'fill="{t["dust"]}" opacity="{n(op * 1.35)}"/></g>')
 
+    # wind: three high cirrus streaks, and the speed IS your weekly commit rate
+    wind, wbase = [], TOP - 33
+    for i in range(3):
+        dur = max(9.0, 46.0 - stats["rate"] * 2.2 + i * 7)
+        wind.append(f'<g class="cl" style="animation-duration:{n(dur)}s;'
+                    f'animation-delay:{n(-i * dur / 3)}s">'
+                    f'<path d="M0 {n(wbase + i * 7)} h{n(120 + i * 60)} q14 0 10 -4" fill="none" '
+                    f'stroke="{t["sky"]}" stroke-width=".9" opacity="{n(0.12 - i * 0.02)}"/></g>'
+                    .replace('<g class="cl"', '<g class="cl" opacity="0"'))
+
+    # ---------------- heat: corona + shimmer on the hottest days ----------------
     big = [(c, r, d) for c, r, d in past if d["level"] >= 4]
     sun = []
     for c, r, d in big[:12]:
@@ -561,10 +604,15 @@ def render_climate(grid, theme, stats, user, weeks, anim=True):
             rays.append(f'<line x1="{n(cx + math.cos(ang) * 7)}" y1="{n(cy + math.sin(ang) * 7)}" '
                         f'x2="{n(cx + math.cos(ang) * 15)}" y2="{n(cy + math.sin(ang) * 15)}" '
                         f'stroke="{t["gold"]}" stroke-width="1.3" opacity=".85"/>')
-        sun.append(f'<g class="spin" style="transform-origin:{n(cx)}px {n(cy)}px;'
+        origin = f'{n(cx)}px {n(cy)}px'
+        sun.append(f'<g class="spin" style="transform-origin:{origin};'
                    f'animation-delay:{n((c * 0.21) % 3)}s">{"".join(rays)}</g>')
+        sun.append(f'<rect class="shimmer" x="{n(LEFT + c * PITCH - 3)}" y="{n(cy - 26)}" '
+                   f'width="{n(CELL + 6)}" height="28" rx="3" fill="{t["gold"]}" opacity="0" '
+                   f'style="animation-delay:{n((r * 0.3) % 2)}s"/>')
 
-    bolts = []
+    # ---------------- storms: the day a streak died ----------------
+    bolts, storm_cells, flashes = [], [], []
     for i, (c, r, d) in enumerate(past):
         if d["count"]:
             continue
@@ -578,51 +626,137 @@ def render_climate(grid, theme, stats, user, weeks, anim=True):
             continue
         cx = LEFT + c * PITCH + CELL / 2
         cy = TOP + r * PITCH + CELL
-        bolts.append(f'<path class="bolt" style="animation-delay:{n((i * 0.37) % 7)}s" '
-                     f'd="M{n(cx)} {n(TOP - 5)} l-6 {n((cy - TOP) * 0.45)} l7 0 l-7 {n((cy - TOP) * 0.4)} '
-                     f'l13 {n(-(cy - TOP) * 0.5)} l-7 0 l7 {n(-(cy - TOP) * 0.35)} z" fill="{t["gold"]}"/>')
-        if len(bolts) >= 8:
+        delay = n((i * 0.37) % 7)
+        d_part = cy - TOP
+        bolt_d = (f"M{n(cx)} {n(TOP - 4)} l-6 {n(d_part * 0.45)} l7 0 l-7 {n(d_part * 0.4)} "
+                  f"l13 {n(-d_part * 0.5)} l-9 0 l8 {n(-d_part * 0.3)} z")
+        bolts.append(f'<path class="bolt" style="animation-delay:{delay}s" d="{bolt_d}" '
+                     f'fill="{t["gold"]}"/>')
+        cy0 = TOP - 11
+        cloud = (f'<ellipse cx="{n(cx)}" cy="{n(cy0)}" rx="22" ry="7" fill="{t["dim"]}" '
+                 f'opacity=".45"/>'
+                 f'<ellipse cx="{n(cx + 9)}" cy="{n(cy0 - 4)}" rx="12" ry="5" fill="{t["dim"]}" '
+                 f'opacity=".35"/>')
+        storm_cells.append(f'<g>{cloud}<circle class="lit" cx="{n(cx)}" cy="{n(cy0)}" r="26" '
+                           f'fill="url(#lit)" opacity=".06" style="animation-delay:{delay}s"/></g>')
+        flashes.append(f'<ellipse class="flash" cx="{n(cx)}" cy="{n(cy)}" rx="44" ry="27" '
+                       f'fill="{t["gold"]}" opacity="0" style="animation-delay:{delay}s"/>')
+        if len(bolts) >= 7:
             break
-    flash = ([f'<rect class="flash" width="{n(w)}" height="{n(h)}" fill="{t["gold"]}" opacity="0"/>']
-             if bolts else [])
+    flashes.append(f'<rect class="scene" width="{n(w)}" height="{n(h)}" fill="{t["gold"]}" opacity="0"/>')
 
-    anim_css = ""
+    # ---------------- the lamp that measures the year ----------------
+    arc = (w - 2 * LEFT) / 2
+    lamp = ""
     if anim:
-        anim_css = (
-            "@keyframes drift{from{transform:translateX(-170px)}"
-            f"to{{transform:translateX({n(w + 320)}px)}}}}"
-            "@keyframes spin{to{transform:rotate(360deg)}}"
-            "@keyframes reveal{from{opacity:0}to{opacity:1}}"
-            f"@keyframes drop{{0%{{transform:translateY(0);opacity:0}}14%{{opacity:.75}}"
-            f"78%{{opacity:.5}}100%{{transform:translateY({n(fall)}px);opacity:0}}}}"
-            "@keyframes strike{0%,92%{opacity:0}93%{opacity:1}94.5%{opacity:.1}96%{opacity:.9}97.5%{opacity:.2}"
-            "100%{opacity:0}}"
-            "@keyframes scene{0%,91.5%{opacity:0}93%{opacity:.05}95%{opacity:.03}97%{opacity:.04}"
-            "100%{opacity:0}}"
-            ".drop{animation-name:drop;animation-timing-function:linear;animation-iteration-count:infinite;"
-            "animation-fill-mode:both}"
-            ".cl{animation:drift linear infinite}"
-            ".spin{animation:spin 10s linear infinite}"
-            ".bolt{animation:strike 7s steps(1,end) infinite;opacity:0}"
-            ".flash{animation:scene 7s steps(1,end) infinite}"
-            ".cell{animation:reveal .9s ease-out both}"
-            + REDUCED
-        )
+        lamp = (f'<g class="lamp" opacity="0">'
+                f'<circle cx="{n(LEFT)}" cy="{n(TOP - 27)}" r="6.5" fill="{t["gold"]}" opacity=".9"/>'
+                f'<circle cx="{n(LEFT)}" cy="{n(TOP - 27)}" r="13" fill="{t["gold"]}" opacity=".13"/></g>')
+
+    # ---------------- rain gauge ----------------
+    months = {}
+    for c, r, d in past:
+        k = d["date"].year * 100 + d["date"].month
+        months[k] = months.get(k, 0) + d["count"]
+    keys = sorted(months)
+    mx = max(months.values()) if months else 1
+    mx = max(1, mx)
+    seg_w = (w - LEFT - PAD_R) / max(1, len(keys))
+    base = strip_y + 20
+    gauge = [f'<line x1="{n(LEFT)}" y1="{n(base)}" x2="{n(w - PAD_R)}" y2="{n(base)}" '
+             f'stroke="{t["grid"]}" stroke-width=".7"/>']
+    for i, k in enumerate(keys):
+        v = months[k]
+        d0 = dt.date(k // 100, k % 100, 1)
+        if i:
+            prev = dt.date(keys[i - 1] // 100, keys[i - 1] % 100, 1)
+            if d0.year != prev.year:        # the new-year tick, like a weather front
+                gauge.append(f'<line x1="{n(LEFT + i * seg_w - 2)}" y1="{n(base - 20)}" '
+                             f'x2="{n(LEFT + i * seg_w - 2)}" y2="{n(base + 2)}" '
+                             f'stroke="{t["label"]}" stroke-width=".7" stroke-dasharray="2 2"/>')
+        label = d0.strftime("%b") + (" \u2019%02d" % (d0.year % 100) if d0.month in (1, 7) else "")
+        bh = 3 + (v / mx) * 16
+        x = LEFT + i * seg_w
+        bw = max(2, seg_w - 4)
+        op = 0.95 if v >= mx * 0.6 else 0.45
+        gauge.append(f'<rect x="{n(x)}" y="{n(base - bh)}" width="{n(bw)}" height="{n(bh)}" '
+                     f'rx="2.5" fill="{t["accent"]}" opacity="{n(op)}"/>')
+        gauge.append(f'<text x="{n(x + 1)}" y="{n(base + 9)}" font-size="7" fill="{t["dim"]}">'
+                     f'{label}</text>')
+        if v:
+            gauge.append(f'<text x="{n(x + bw / 2)}" y="{n(base - bh - 3)}" font-size="6.5" '
+                         f'fill="{t["label"]}" text-anchor="middle">{v}</text>')
+
+    humidity = round(100 * stats["active"] / max(1, stats["days"]))
+    pressure = 980 + stats["streak"] * 4
+    chips = [("humidity", f"{humidity}%"), ("pressure", f"{pressure} hPa"),
+             ("dry weeks", str(len(dry)))]
+
+    style = (
+        "@keyframes drift{from{transform:translateX(-170px)}"
+        f"to{{transform:translateX({n(w + 320)}px)}}}}"
+        "@keyframes spin{to{transform:rotate(360deg)}}"
+        "@keyframes reveal{from{opacity:0}to{opacity:1}}"
+        f"@keyframes drop{{0%{{transform:translateY(0);opacity:0}}14%{{opacity:.75}}78%{{opacity:.5}}"
+        f"100%{{transform:translateY({n(fall)}px);opacity:0}}}}"
+        "@keyframes splash{0%,70%{opacity:0;transform:scale(.35)}76%{opacity:.55}"
+        "100%{opacity:0;transform:scale(1.5)}}"
+        "@keyframes flake{0%{transform:translate(-3px,-150px);opacity:0}14%{opacity:.7}"
+        "55%{transform:translate(4px,-60px);opacity:.55}"
+        "86%{transform:translate(0,3px);opacity:.75}100%{transform:translate(0,5px);opacity:0}}"
+        "@keyframes windpuff{0%{opacity:0;transform:translateX(-12px)}25%{opacity:.5}"
+        "100%{opacity:0;transform:translateX(28px)}}"
+        "@keyframes shimmer{0%,100%{opacity:0}50%{opacity:.11}}"
+        "@keyframes strike{0%,92%{opacity:0}93%{opacity:1}94.5%{opacity:.12}96%{opacity:.9}"
+        "100%{opacity:0}}"
+        "@keyframes zap{0%,92%{opacity:0}93%{opacity:.2}94.5%{opacity:.05}96%{opacity:.16}"
+        "100%{opacity:0}}"
+        "@keyframes glow{0%,90%{opacity:.06}93%{opacity:.55}96%{opacity:.14}100%{opacity:.06}}"
+        "@keyframes scene{0%,91.5%{opacity:0}93%{opacity:.05}95%{opacity:.03}97%{opacity:.045}"
+        "100%{opacity:0}}"
+        f"@keyframes lamp{{0%{{transform:translate(0,8px);opacity:0}}6%{{opacity:.85}}"
+        f"50%{{transform:translate({n(arc)},-18px);opacity:.9}}"
+        f"94%{{opacity:.85}}100%{{transform:translate({n(2 * arc)},8px);opacity:0}}}}"
+        ".drop{animation-name:drop;animation-timing-function:linear;animation-iteration-count:infinite;"
+        "animation-fill-mode:both;opacity:0}"
+        ".splash{animation:splash 1.9s ease-out infinite;transform-box:fill-box;transform-origin:center}"
+        ".flake{animation:flake 8s linear infinite;opacity:0}"
+        ".wind{animation:windpuff 4s linear infinite;opacity:0}"
+        ".shimmer{animation:shimmer 2.6s ease-in-out infinite}"
+        ".cl{animation:drift linear infinite}"
+        ".spin{animation:spin 10s linear infinite}"
+        ".bolt{animation:strike 7s steps(1,end) infinite;opacity:0}"
+        ".lit{animation:glow 7s steps(1,end) infinite}"
+        ".flash{animation:zap 7s steps(1,end) infinite}"
+        ".scene{animation:scene 7s steps(1,end) infinite}"
+        ".lamp{animation:lamp 66s linear infinite}"
+        ".cell{animation:reveal .9s ease-out both}"
+    ) + REDUCED
+    if not anim:
+        style = ""
     defs = (f'<linearGradient id="fog" x1="0" x2="0" y1="0" y2="1">'
             f'<stop offset="0" stop-color="{t["bg"]}" stop-opacity="0"/>'
-            f'<stop offset="1" stop-color="{t["dust"]}" stop-opacity=".13"/></linearGradient>')
-    chips = [("dry weeks", str(len(dry))), ("heat days", str(len(big))),
-             ("strikes", str(len(bolts))), ("commits", str(stats["total"]))]
+            f'<stop offset="1" stop-color="{t["dust"]}" stop-opacity=".13"/></linearGradient>'
+            f'<radialGradient id="lit"><stop offset="0" stop-color="{t["gold"]}" stop-opacity=".7"/>'
+            f'<stop offset="1" stop-color="{t["gold"]}" stop-opacity="0"/></radialGradient>')
     body = [
-        "".join(clouds),
+        lamp, "".join(clouds), "".join(wind),
         base_grid(grid, theme, opacity=0.97, rx=3.2, sweep=0.011, mode="climate"),
-        f'<rect x="0" y="{n(ground + 4)}" width="{n(w)}" height="{n(h - ground)}" fill="url(#fog)"/>',
-        "".join(rain), "".join(sun), "".join(bolts), "".join(flash),
-        header(w, theme, "contribution climate", f"{user} · a year of weather over the grid", chips),
+        f'<rect x="0" y="{n(ground + 4)}" width="{n(w)}" height="{n(strip_y - ground - 2)}" '
+        f'fill="url(#fog)"/>',
+        "".join(snow), "".join(rain), "".join(splash), "".join(sun),
+        "".join(storm_cells), "".join(bolts), "".join(flashes), "".join(gauge),
+        f'<text x="{n(LEFT)}" y="{n(base + 22)}" font-size="8" fill="{t["dim"]}">'
+        f'rain gauge · commits per month · {stats["total"]} in this window</text>',
+        header(w, theme, "contribution climate",
+               f'{user} · uv {stats["best_count"]} · wind {stats["rate"]}/wk · '
+               f'{stats["streak"]}d high pressure', chips),
         month_labels(grid, w, theme),
-        footer(w, h, theme, "rain on dry weeks · flares on big days · lightning where a streak died"),
+        footer(w, h, theme, f'rain on {len(dry)} dry weeks · snow on a quiet winter · '
+                            f'flares on {len(big)} hot days · storms where {len(bolts)} streaks died',
+               legend=False),
     ]
-    return (open_svg(w, h, theme, anim_css, defs, "contribution climate",
+    return (open_svg(w, h, theme, style, defs, "contribution climate forecast",
                      f'{stats["total"]} contributions'), "".join(body), w, h)
 
 
