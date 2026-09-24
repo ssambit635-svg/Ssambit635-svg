@@ -87,74 +87,16 @@ Hi, I'm **Sambit Swain** — a developer from **Berhampur, Odisha** with a **nig
 
 <div align="center">
 
-## `~/` contribution calendar
+## `~/` contribution pulse
 
-<!-- 3D isometric calendar, regenerated every 6h by .github/workflows/metrics.yml -->
-<img src="assets/metrics.isocalendar.svg" width="90%" alt="3D isometric contribution calendar">
-
-<br><br>
-
-<!-- Snake eats the contribution graph - .github/workflows/snake.yml -->
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="https://raw.githubusercontent.com/ssambit635-svg/Ssambit635-svg/output/snake-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ssambit635-svg/Ssambit635-svg/output/snake.svg">
-  <img src="https://raw.githubusercontent.com/ssambit635-svg/Ssambit635-svg/output/snake.svg" width="100%" alt="snake eating the contribution graph">
-</picture>
-
-</div>
-
----
-
-<div align="center">
-
-## `~/` contribution climate
-
-<!-- The flagship lens, drawn by scripts/contribgraph.py straight from the live
-     calendar (.github/workflows/graph.yml, daily). Your commit history *is* the
-     weather: dry weeks get rain, a quiet Nov-Feb gets snow, level-4 days burn,
-     and a thunderstorm sits on the exact day a streak died. Monthly rainfall is
-     the gauge under the grid. All motion is CSS inside the SVG - the only kind
-     GitHub's <img> tag runs - and it switches itself off for prefers-reduced-motion. -->
-
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-climate-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/graph-climate-light.svg">
-  <img src="assets/graph-climate-dark.svg" width="100%" alt="contribution climate: rain on dry weeks, snow over a quiet winter, solar flares on the hottest days, lightning on the day a streak died, and a monthly rain gauge under the grid">
-</picture>
-
-<details>
-<summary><b>other lenses</b> — star chart · ECG · cellular automaton</summary>
-<br>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-night-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/graph-night-light.svg">
-  <img src="assets/graph-night-dark.svg" width="100%" alt="the year as a star chart: stars are commit days, streaks are constellations, the best day goes nova">
-</picture>
-
-<br>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-pulse-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/graph-pulse-light.svg">
-  <img src="assets/graph-pulse-dark.svg" width="100%" alt="contribution ECG: one heartbeat per day, gaps read as flatline">
-</picture>
-
-<br>
-
+<!-- One lens only: Conway's Game of Life seeded by real commit days, with an ECG
+     heartbeat sweeping across that "eats" each week of contributions and lets it
+     regrow behind. Drawn by scripts/contribgraph.py (.github/workflows/graph.yml). -->
 <picture>
   <source media="(prefers-color-scheme: dark)"  srcset="assets/graph-life-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/graph-life-light.svg">
-  <img src="assets/graph-life-dark.svg" width="100%" alt="Conway's Game of Life seeded by the real commit days, evolving on a loop">
+  <img src="assets/graph-life-dark.svg" width="100%" alt="cellular automaton seeded by commit days, with an ECG heartbeat eating through the contributions">
 </picture>
-
-<br>
-
-<sub>Every lens is <b>interactive</b> in the
-<a href="https://ssambit635-svg.github.io/Ssambit635-svg/lab.html">contribution lab</a> —
-hover any day for its numbers, scrub through the year, step the automaton frame by frame.</sub>
-
-</details>
 
 </div>
 

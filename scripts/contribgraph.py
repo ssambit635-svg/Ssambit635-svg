@@ -917,12 +917,14 @@ def render_life(grid, theme, stats, user, weeks, anim=True, gens=16, freeze=0):
 
     def layer(fr):
         grown_id = "lc" if theme == "light" else "lg"   # dimmed cells vanish on white paper
-        grown = "".join(f'<use href="#{grown_id}" '
-                        f'x="{n(LEFT + c * PITCH)}" y="{n(TOP + r * PITCH)}"/>'
-                        for c, r in sorted(fr - seed))
-        real = "".join(f'<use href="#lc" x="{n(LEFT + c * PITCH)}" y="{n(TOP + r * PITCH)}"/>'
-                       for c, r in sorted(fr & seed))
-        return grown + real
+        # grouped per week-column so the ECG head can "eat" one column at a time
+        cols = {}
+        for c, r in sorted(fr):
+            ref = "lc" if (c, r) in seed else grown_id
+            cols.setdefault(c, []).append(
+                f'<use href="#{ref}" x="{n(LEFT + c * PITCH)}" y="{n(TOP + r * PITCH)}"/>')
+        return "".join(f'<g class="k{c}">{"".join(v)}</g>' if anim else "".join(v)
+                       for c, v in cols.items())
 
     seed_ring = "".join(f'<rect x="{n(LEFT + c * PITCH - 1.5)}" y="{n(TOP + r * PITCH - 1.5)}" '
                         f'width="{n(CELL + 3)}" height="{n(CELL + 3)}" rx="4" fill="none" '
@@ -953,17 +955,71 @@ def render_life(grid, theme, stats, user, weeks, anim=True, gens=16, freeze=0):
             f'<linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1">'
             f'<stop offset="0" stop-color="{t["accent"]}" stop-opacity=".08"/>'
             f'<stop offset="1" stop-color="{t["bg"]}" stop-opacity="0"/></linearGradient>')
+    # ---- ECG sweep: one heartbeat per week, amplitude = that week's commits.
+    # The scan head runs left to right; every column it passes gets eaten
+    # (cells flash and vanish), then regrows behind it as a trailing wave.
+    W = len(grid)
+    loop = 10.0
+    run = 0.72 * loop                      # time for the head to cross the grid
+    mid = TOP + ROWS * PITCH / 2 - GAP / 2
+    amp_max = ROWS * PITCH / 2 - 2
+    wk = [sum(d["count"] for d in col if not d["future"]) for col in grid]
+    top = max(wk) or 1
+    segs, glow = [], []
+    for c in range(W):
+        x0 = LEFT + c * PITCH - GAP / 2
+        u = PITCH / 10
+        a = amp_max * min(1.0, (wk[c] / top) ** 0.6) if wk[c] else 0
+        if a:
+            d = (f"M{n(x0)} {n(mid)}L{n(x0 + u)} {n(mid)}"
+                 f"Q{n(x0 + 2 * u)} {n(mid - a * .18)} {n(x0 + 3 * u)} {n(mid)}"
+                 f"L{n(x0 + 3.8 * u)} {n(mid + a * .22)}L{n(x0 + 5 * u)} {n(mid - a)}"
+                 f"L{n(x0 + 6.2 * u)} {n(mid + a * .45)}L{n(x0 + 7 * u)} {n(mid)}"
+                 f"Q{n(x0 + 8.3 * u)} {n(mid - a * .28)} {n(x0 + 9.4 * u)} {n(mid)}"
+                 f"L{n(x0 + PITCH)} {n(mid)}")
+        else:
+            d = f"M{n(x0)} {n(mid)}L{n(x0 + PITCH)} {n(mid)}"
+        cls = f' class="k{c} e"' if anim else ""
+        segs.append(f'<path{cls} d="{d}"/>')
+    ecg_color = "#ff5470" if theme == "dark" else "#cf222e"
+    trace = (f'<g fill="none" stroke-linejoin="round" stroke-linecap="round">'
+             f'<g stroke="{ecg_color}" stroke-width="4" opacity=".22">{"".join(segs)}</g>'
+             f'<g stroke="{ecg_color}" stroke-width="1.6">{"".join(segs)}</g></g>')
+    head = ""
+    if anim:
+        gx0, gy0, gh = LEFT - GAP, TOP - 4, ROWS * PITCH + 5
+        head = (f'<g class="hd"><rect x="{n(gx0 - 18)}" y="{n(gy0)}" width="20" height="{n(gh)}" '
+                f'fill="url(#ecgfade)"/>'
+                f'<rect x="{n(gx0 + 1)}" y="{n(gy0)}" width="1.6" height="{n(gh)}" fill="{ecg_color}"/>'
+                f'<circle cx="{n(gx0 + 1.8)}" cy="{n(mid)}" r="3.2" fill="{ecg_color}"/>'
+                f'<circle cx="{n(gx0 + 1.8)}" cy="{n(mid)}" r="7" fill="{ecg_color}" opacity=".25"/></g>')
+        ecg_css = (f"@keyframes eat{{0%{{opacity:1}}1.2%{{opacity:1;filter:brightness(2)}}"
+                   f"3%{{opacity:0}}46%{{opacity:0}}58%,100%{{opacity:1}}}}"
+                   f"@keyframes ink{{0%{{opacity:0}}.6%,40%{{opacity:1}}60%,100%{{opacity:0}}}}"
+                   f"@keyframes hd{{0%{{transform:translateX(0);opacity:1}}"
+                   f"72%{{transform:translateX({n(W * PITCH + GAP)}px);opacity:1}}"
+                   f"74%,100%{{transform:translateX({n(W * PITCH + GAP)}px);opacity:0}}}}"
+                   f"[class^=k],[class*=' k']{{animation:eat {n(loop)}s linear infinite both}}"
+                   f".e{{animation-name:ink!important;opacity:0}}"
+                   f".hd{{animation:hd {n(loop)}s linear infinite}}")
+        ecg_css += "".join(f".k{c}{{animation-delay:{n(run * (c + .5) / W)}s}}" for c in range(W))
+        anim_css = anim_css.replace(REDUCED, "") + ecg_css + REDUCED
+    defs += (f'<linearGradient id="ecgfade" x1="0" x2="1"><stop offset="0" stop-color="{ecg_color}" '
+             f'stop-opacity="0"/><stop offset="1" stop-color="{ecg_color}" stop-opacity=".35"/>'
+             f'</linearGradient>')
     chips = [("seeds", str(len(seed))), ("extinctions", str(extinctions)),
-             ("rule", "B3/S23"), ("loop", f'{n(dur)}s')]
+             ("rule", "B3/S23"), ("bpm", str(round(60 * W / loop)))]
     body = [
         f'<rect width="{n(w)}" height="{n(h)}" fill="url(#lg2)"/>',
         base_grid(grid, theme, opacity=0.3 if theme == "dark" else 0.44, rx=3.2, sweep=0.012,
                   mode="life"),
         seed_ring,
         "".join(layers),
-        header(w, theme, "cellular contributions", f"{user} · life, seeded by your commits", chips),
+        trace,
+        head,
+        header(w, theme, "cellular contributions", f"{user} · life + heartbeat, seeded by your commits", chips),
         month_labels(grid, w, theme),
-        footer(w, h, theme, "bright = a day you pushed · dim = what the automaton grew out of it"),
+        footer(w, h, theme, "bright = a day you pushed · dim = automaton growth · the heartbeat eats each week, then it regrows"),
     ]
     return (open_svg(w, h, theme, anim_css, defs, "cellular contribution automaton",
                      f'{stats["total"]} contributions'), "".join(body), w, h)
