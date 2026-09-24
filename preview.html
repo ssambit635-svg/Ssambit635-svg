@@ -18,6 +18,8 @@
            vertical-align:middle; text-transform:none; letter-spacing:0 }
   button:hover { background:#30363d; border-color:#39d353; color:#39d353 }
   .missing { color:#8b949e; font-style:italic; font-size:13px }
+  #lenses .card { flex:1 1 480px; min-width:0 }
+  #lenses img.lens { width:100%; height:auto }
 </style>
 
 <h1>profile assets — local preview · Sambit Swain</h1>
@@ -71,3 +73,26 @@
   <div class="card"><span class="tag">metrics.languages.svg</span><img src="assets/metrics.languages.svg" width="480"></div>
   <div class="card"><span class="tag">metrics.achievements.svg</span><img src="assets/metrics.achievements.svg" width="480"></div>
 </div>
+
+<h2>contribution lenses <button id="lensreplay">replay</button>
+  <a href="lab.html" style="font:12px ui-sans-serif,system-ui;color:#39d353;margin-left:14px">open the interactive lab →</a></h2>
+<p class="missing">These four are the exact files the README embeds — the same SVGs, animated by CSS inside
+   the file, so GitHub will run them. Hover/scrub/step all live in the lab.</p>
+<div id="lenses"></div>
+<script>
+  const MODES = [
+    ['night',   'star chart — stars = commit days, streaks are constellations, the best day goes nova'],
+    ['climate','climate — rain on dry weeks, flares on level-4 days, lightning on the day a streak died'],
+    ['pulse',   'ECG — one beat per day, amplitude = commits, quiet runs read as a flatline'],
+    ['life',    'cellular automaton — Conway\'s Life, seeded by your real commit days, looping forever'],
+  ];
+  document.getElementById('lenses').innerHTML = MODES.map(([m, note]) => `
+    <h2 style="margin:34px 0 14px">${m} <span style="font:11px ui-sans-serif;color:#8b949e;text-transform:none;letter-spacing:0">· ${note}</span></h2>
+    <div class="row">
+      <div class="card"><span class="tag">graph-${m}-dark.svg</span><img class="lens" src="assets/graph-${m}-dark.svg"></div>
+      <div class="card light"><span class="tag" style="color:#57606a">graph-${m}-light.svg</span><img class="lens" src="assets/graph-${m}-light.svg"></div>
+    </div>`).join('');
+  document.getElementById('lensreplay').onclick = () =>
+    document.querySelectorAll('img.lens').forEach(i => { const s = i.getAttribute('src'); i.src = s.split('?')[0] + '?' + Date.now(); });
+</script>
+
