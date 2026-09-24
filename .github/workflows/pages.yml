@@ -3,6 +3,10 @@ name: Contribution lab site
 # The README can only show an <img>. This publishes the *interactive* version of
 # the same grid (hover, scrub, step the automaton) to GitHub Pages so the profile
 # can link out to it.
+#
+# One-time switch needed by GitHub: Settings -> Pages -> Build and deployment ->
+# Source must be "GitHub Actions". Until that is done this workflow skips itself
+# instead of failing, so the repo stays green.
 
 on:
   push:
@@ -26,27 +30,47 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      pages_enabled: ${{ steps.gate.outputs.pages_enabled }}
     steps:
+      - name: Is Pages set to "GitHub Actions"?
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          src=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type 2>/dev/null || echo none)
+          if [ "$src" = "workflow" ]; then
+            echo "pages_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipped::Pages source is '$src', not 'GitHub Actions'. Enable it under Settings -> Pages to publish the lab."
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.pages_enabled == 'true'
 
       - name: Assemble the site
+        if: steps.gate.outputs.pages_enabled == 'true'
         run: |
           mkdir -p _site/assets
           cp lab.html preview.html _site/
-          cp assets/graph-*.svg assets/contributions.json assets/*.svg _site/assets/ 2>/dev/null || true
+          cp assets/*.svg assets/contributions.json _site/assets/ 2>/dev/null || true
 
       - uses: actions/configure-pages@v4
+        if: steps.gate.outputs.pages_enabled == 'true'
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.gate.outputs.pages_enabled == 'true'
         with:
           path: _site
 
   deploy:
     needs: build
+    if: needs.build.outputs.pages_enabled == 'true'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
