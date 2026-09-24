@@ -251,9 +251,9 @@ function paintNight(svg,list,maxc){
     r.forEach((d,i)=>{ if(i&&d.c!==r[i-1].c) {flush(pts);pts.length=0} pts.push(cen(d).join(',')) });
     flush(pts);
     function flush(p){ if(p.length<2) return;
-      const pl=el('polyline',{points:p.join(' '),fill:'none',stroke:'var(--acc)','stroke-width':1.2,
-        opacity:.65,'stroke-linecap':'round'},svg);
-      pl.style.strokeDasharray=900; pl.style.animation='draw 9s ease-in-out infinite';}
+      const pl=el('polyline',{points:p.join(' '),pathLength:100,fill:'none',stroke:'var(--acc)',
+        'stroke-width':1.2,opacity:.65,'stroke-linecap':'round'},svg);
+      pl.style.strokeDasharray=100; pl.style.animation='draw 9s ease-in-out infinite';}
   });
   list.filter(d=>d.count>0).forEach(d=>{
     const [cx,cy]=cen(d), s=1.9+(d.count/maxc)*3.4;
@@ -409,8 +409,8 @@ function hud(list){
 const css=document.createElement('style');
 css.textContent=`
 @keyframes tw{0%,100%{opacity:.05}50%{opacity:.45}}
-@keyframes draw{0%{stroke-dashoffset:900;opacity:0}8%{opacity:.65}42%{stroke-dashoffset:0}
-  80%{stroke-dashoffset:0;opacity:.65}100%{stroke-dashoffset:-900;opacity:0}}
+@keyframes draw{0%{stroke-dashoffset:100;opacity:0}8%{opacity:.65}42%{stroke-dashoffset:0}
+  80%{stroke-dashoffset:0;opacity:.65}100%{stroke-dashoffset:-100;opacity:0}}
 @keyframes nova{0%{r:2;opacity:.85}70%{opacity:.15}100%{r:30;opacity:0}}
 @keyframes fly{from{transform:translate(0,0)}to{transform:translate(-1140px,388px)}}
 @keyframes drop{0%{transform:translateY(0);opacity:0}14%{opacity:.8}78%{opacity:.5}

@@ -129,37 +129,40 @@ def fetch(user: str, year: int, timeout: float = 25.0) -> dict:
         return parse_contributions(r.read().decode("utf-8", "replace"))
 
 
-def load_days(user: str, today: dt.date, json_path: Path, offline: bool) -> tuple[dict, str]:
-    """current year + previous year, merged. returns (days, source)"""
+def load_days(user: str, today: dt.date, json_path: Path, offline: bool = False,
+              refresh: bool = False) -> tuple[dict, str]:
+    """current year + previous year, merged. returns (days, source)
+
+    The cache is what protects the profile: it is only ever overwritten by a
+    successful fetch, and it is what we fall back to when github.com is down.
+    """
+    cached: dict[str, dict] = {}
     if json_path.exists():
         try:
-            cached = json.loads(json_path.read_text())
-            days = cached.get("days") or {}
-            if days and (offline or not user):
-                return days, "cache"
-            if days:
-                # cache exists - only refresh if the newest day is older than today
-                newest = max(days)
-                if (today - dt.date.fromisoformat(newest)).days <= 1:
-                    return days, "cache(fresh)"
-        except Exception:
-            pass
-    days: dict[str, dict] = {}
-    if offline:
-        if not days:
-            raise SystemExit("offline and no usable cache at " + str(json_path))
-        return days, "cache"
-    ok = False
+            cached = json.loads(json_path.read_text()).get("days") or {}
+            if not cached:
+                raise ValueError("empty cache")
+        except Exception as exc:
+            print(f"note: cache unusable ({exc})", file=sys.stderr)
+            cached = {}
+    if offline or not user:
+        if not cached:
+            raise SystemExit(f"no usable cache at {json_path} - run once without --offline")
+        return cached, "cache"
+    if cached and not refresh and dt.date.fromisoformat(max(cached)) >= today:
+        return cached, "cache(fresh)"          # already drew this year today
+    days = dict(cached)
+    got = 0
     for year in (today.year, today.year - 1):
         try:
             days.update(fetch(user, year))
-            ok = True
+            got += 1
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             print(f"warn: could not fetch {year} ({exc})", file=sys.stderr)
-    if not ok:
+    if not got:
         if days:
             return days, "cache(stale)"
-        raise SystemExit("github.com unreachable and no cache - keeping previous SVGs")
+        raise SystemExit("github.com unreachable and no cache - previous SVGs stay as they are")
     return days, "live"
 
 
@@ -436,8 +439,8 @@ def render_night(grid, theme, stats, user, weeks, anim=True):
     lines = []
     for part in chunks:
         pts = " ".join(f"{n(centers[x][0])},{n(centers[x][1])}" for x in part)
-        lines.append(f'<polyline points="{pts}" fill="none" stroke="{t["accent"]}" stroke-width="1.1" '
-                     f'opacity=".6" stroke-linecap="round" class="draw"/>')
+        lines.append(f'<polyline points="{pts}" pathLength="100" fill="none" stroke="{t["accent"]}" '
+                     f'stroke-width="1.1" opacity=".6" stroke-linecap="round" class="draw"/>')
 
     nova = []
     if stats["best_day"]:
@@ -479,14 +482,14 @@ def render_night(grid, theme, stats, user, weeks, anim=True):
     if anim:
         anim_css = (
             "@keyframes tw{0%,100%{opacity:.05}50%{opacity:.4}}"
-            "@keyframes draw{0%{stroke-dashoffset:900;opacity:0}8%{opacity:.6}42%{stroke-dashoffset:0}"
-            "80%{stroke-dashoffset:0;opacity:.6}100%{stroke-dashoffset:-900;opacity:0}}"
+            "@keyframes draw{0%{stroke-dashoffset:100;opacity:0}8%{opacity:.6}42%{stroke-dashoffset:0}"
+            "80%{stroke-dashoffset:0;opacity:.6}100%{stroke-dashoffset:-100;opacity:0}}"
             "@keyframes reveal{from{opacity:0}to{opacity:1}}"
             f"@keyframes fly{{from{{transform:translate(0,0)}}"
             f"to{{transform:translate(-{n(w + 200)}px,{n((w + 200) * 0.32)}px)}}}}"
             "@keyframes flyfade{0%,4%{opacity:0}9%{opacity:.85}66%{opacity:.85}100%{opacity:0}}"
             ".tw{animation:tw 4.4s ease-in-out infinite}"
-            ".draw{stroke-dasharray:900;animation:draw 10s ease-in-out infinite}"
+            ".draw{stroke-dasharray:100;animation:draw 10s ease-in-out infinite}"
             ".meteor{animation:fly 11s linear infinite,flyfade 11s linear infinite;opacity:0}"
             ".cell{animation:reveal .9s ease-out both}"
             + REDUCED
@@ -847,6 +850,7 @@ def main(argv=None):
     ap.add_argument("--weeks", type=int, default=53)
     ap.add_argument("--json", dest="json_path", default="", help="cache file (default: <out>/contributions.json)")
     ap.add_argument("--offline", action="store_true", help="never touch the network, only use the cache")
+    ap.add_argument("--refresh", action="store_true", help="re-fetch even if the cache is from today")
     ap.add_argument("--themes", default="dark,light")
     ap.add_argument("--today", default="", help="override 'today' (YYYY-MM-DD) for reproducible output")
     ap.add_argument("--stdout", action="store_true", help="print the SVG instead of writing files")
@@ -861,14 +865,14 @@ def main(argv=None):
     cache = Path(args.json_path) if args.json_path else out / "contributions.json"
 
     user = args.user or "you"
-    days, source = load_days(user, today, cache, args.offline)
+    days, source = load_days(user, today, cache, args.offline, args.refresh)
     grid = build_window(days, today, args.weeks)
     stats = stats_of(grid)
     stats["source"] = source
     stats["user"] = user
     stats["today"] = today.isoformat()
 
-    if not args.stdout:
+    if not args.stdout and source.startswith(("live", "cache(stale")):
         cache.write_text(json.dumps({"days": days, "stats": stats}, indent=1, sort_keys=True))
 
     written = []
