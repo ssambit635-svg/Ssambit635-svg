@@ -897,132 +897,173 @@ def life_step(alive, W=53, H=7):
 
 
 def render_life(grid, theme, stats, user, weeks, anim=True, gens=16, freeze=0):
+    """cellular automaton + a real ECG monitor sweep that eats the year and lets it regrow"""
+    import math
     t = THEMES[theme]
-    w = LEFT + weeks * PITCH + PAD_R
-    h = TOP + ROWS * PITCH + PAD_B
+    lv = LEVELS[theme]
+    W = len(grid)
+    w = LEFT + W * PITCH + PAD_R
+    h = TOP + ROWS * PITCH + 40
+    gh = ROWS * PITCH - GAP
+    mid = TOP + gh * 0.56
     seed = {(c, r) for c, col in enumerate(grid) for r, d in enumerate(col)
             if not d["future"] and d["count"] > 0}
-    if not seed:
-        seed = {(0, 3)}
-    frames, alive, extinctions = [], set(seed), 0
-    for g in range(gens):
+
+    # ---------------- life: the automaton grows faintly around real days
+    frames, alive = [], set(seed or {(0, 3)})
+    for _ in range(gens):
         frames.append(set(alive))
-        alive = life_step(alive, len(grid), ROWS)
-        if not alive:
-            alive = set(seed)
-            extinctions += 1
-    step = 0.42
-    dur = step * gens
-    pct = 100.0 / gens
+        alive = life_step(alive, W, ROWS) or set(seed or {(0, 3)})
+    step = 0.6
+    gdur = step * gens
 
-    def layer(fr):
-        grown_id = "lc" if theme == "light" else "lg"   # dimmed cells vanish on white paper
-        # grouped per week-column so the ECG head can "eat" one column at a time
-        cols = {}
-        for c, r in sorted(fr):
-            ref = "lc" if (c, r) in seed else grown_id
-            cols.setdefault(c, []).append(
-                f'<use href="#{ref}" x="{n(LEFT + c * PITCH)}" y="{n(TOP + r * PITCH)}"/>')
-        return "".join(f'<g class="k{c}">{"".join(v)}</g>' if anim else "".join(v)
-                       for c, v in cols.items())
-
-    seed_ring = "".join(f'<rect x="{n(LEFT + c * PITCH - 1.5)}" y="{n(TOP + r * PITCH - 1.5)}" '
-                        f'width="{n(CELL + 3)}" height="{n(CELL + 3)}" rx="4" fill="none" '
-                        f'stroke="{t["dim"]}" stroke-width=".6" opacity=".5"/>' for c, r in sorted(seed))
-
-    layers = []
-    show = [0] if not anim else list(range(gens))
-    hx, hy = LEFT + 3, TOP + ROWS * PITCH - 16
-    for g in show:
-        fr = frames[g]
-        readout = (f'<g><rect x="{n(hx)}" y="{n(hy)}" width="132" height="15" rx="4.5" '
-                   f'fill="{t["bg"]}" opacity=".8" stroke="{t["grid"]}" stroke-width=".5"/>'
-                   f'<text x="{n(hx + 7)}" y="{n(hy + 11)}" font-size="9" fill="{t["accent"]}" '
-                   f'font-family="ui-monospace,Consolas,monospace">'
-                   f'gen {g:02d}/{gens - 1:02d} · {len(fr)} alive</text></g>')
-        delay = f' style="animation-delay:{n(-g * step)}s"' if anim else ""
-        layers.append(f'<g class="g"{delay}>{readout}{layer(fr)}</g>')
-
-    anim_css = ""
-    if anim:
-        anim_css = (f"@keyframes gen{{0%,{n(pct)}%{{opacity:1}}{n(pct)}%,100%{{opacity:0}}}}"
-                    "@keyframes fade{from{opacity:0}to{opacity:1}}"
-                    f".g{{animation:gen {n(dur)}s steps(1,end) infinite;opacity:0}}"
-                    ".cell{animation:fade .8s ease-out both}" + REDUCED)
-    defs = (f'<rect id="lc" width="{n(CELL)}" height="{n(CELL)}" rx="3" fill="{t["accent"]}"/>'
-            f'<rect id="lg" width="{n(CELL)}" height="{n(CELL)}" rx="3" fill="{t["accent"]}" '
-            f'opacity=".38"/>'
-            f'<linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1">'
-            f'<stop offset="0" stop-color="{t["accent"]}" stop-opacity=".08"/>'
-            f'<stop offset="1" stop-color="{t["bg"]}" stop-opacity="0"/></linearGradient>')
-    # ---- ECG sweep: one heartbeat per week, amplitude = that week's commits.
-    # The scan head runs left to right; every column it passes gets eaten
-    # (cells flash and vanish), then regrows behind it as a trailing wave.
-    W = len(grid)
-    loop = 10.0
-    run = 0.72 * loop                      # time for the head to cross the grid
-    mid = TOP + ROWS * PITCH / 2 - GAP / 2
-    amp_max = ROWS * PITCH / 2 - 2
+    # ---------------- ECG: one PQRST complex per week, amplitude = commits
     wk = [sum(d["count"] for d in col if not d["future"]) for col in grid]
     top = max(wk) or 1
-    segs, glow = [], []
+    amp = gh * 0.5
+    rnd = 7
+
+    def jitter():
+        nonlocal rnd
+        rnd = (rnd * 1103515245 + 12345) % 2 ** 31
+        return rnd / 2 ** 31 - 0.5
+
+    def g(x, mu, s):
+        return math.exp(-((x - mu) / s) ** 2)
+
+    pts, col_len, L, prev = [], [], 0.0, None
+    S = 30
     for c in range(W):
-        x0 = LEFT + c * PITCH - GAP / 2
-        u = PITCH / 10
-        a = amp_max * min(1.0, (wk[c] / top) ** 0.6) if wk[c] else 0
-        if a:
-            d = (f"M{n(x0)} {n(mid)}L{n(x0 + u)} {n(mid)}"
-                 f"Q{n(x0 + 2 * u)} {n(mid - a * .18)} {n(x0 + 3 * u)} {n(mid)}"
-                 f"L{n(x0 + 3.8 * u)} {n(mid + a * .22)}L{n(x0 + 5 * u)} {n(mid - a)}"
-                 f"L{n(x0 + 6.2 * u)} {n(mid + a * .45)}L{n(x0 + 7 * u)} {n(mid)}"
-                 f"Q{n(x0 + 8.3 * u)} {n(mid - a * .28)} {n(x0 + 9.4 * u)} {n(mid)}"
-                 f"L{n(x0 + PITCH)} {n(mid)}")
-        else:
-            d = f"M{n(x0)} {n(mid)}L{n(x0 + PITCH)} {n(mid)}"
-        cls = f' class="k{c} e"' if anim else ""
-        segs.append(f'<path{cls} d="{d}"/>')
-    ecg_color = "#ff5470" if theme == "dark" else "#cf222e"
-    trace = (f'<g fill="none" stroke-linejoin="round" stroke-linecap="round">'
-             f'<g stroke="{ecg_color}" stroke-width="4" opacity=".22">{"".join(segs)}</g>'
-             f'<g stroke="{ecg_color}" stroke-width="1.6">{"".join(segs)}</g></g>')
-    head = ""
+        a = amp * (wk[c] / top) ** 0.55 if wk[c] else 0.0
+        shift = jitter() * 0.08               # heart-rate variability
+        col_len.append(L)
+        for i in range(S):
+            u = i / S
+            x = LEFT + c * PITCH - GAP / 2 + u * PITCH
+            v = 0.0
+            if a:
+                m = 0.5 + shift
+                v = (0.10 * g(u, m - 0.22, 0.045) - 0.12 * g(u, m - 0.045, 0.02)
+                     + 1.0 * g(u, m, 0.026) - 0.24 * g(u, m + 0.045, 0.022)
+                     + 0.20 * g(u, m + 0.26, 0.07)) * a
+            v += 0.35 * math.sin((c * S + i) / 37.0)   # faint baseline wander
+            y = mid - v
+            if prev:
+                L += math.hypot(x - prev[0], y - prev[1])
+            prev = (x, y)
+            pts.append(f"{x:.1f} {y:.1f}")
+    d_ecg = "M" + "L".join(pts)
+    frac = [l / L for l in col_len]
+
+    ink = t["title"]
+    glow = t["accent"]
+    loop, run = 11.0, 0.78                 # seconds, share of the loop spent sweeping
+    PL = 1000
+
+    # ---------------- tiles: quiet empty grid + real days (these get eaten)
+    tiles, real, grow = [], [], []
+    for c, col in enumerate(grid):
+        for r, d in enumerate(col):
+            if d["future"]:
+                continue
+            x, y = LEFT + c * PITCH, TOP + r * PITCH
+            tiles.append(f'<rect x="{n(x)}" y="{n(y)}" width="{n(CELL)}" height="{n(CELL)}" rx="3"/>')
+            if d["count"] > 0:
+                real.append(f'<rect class="k k{c}" x="{n(x)}" y="{n(y)}" width="{n(CELL)}" '
+                            f'height="{n(CELL)}" rx="3" fill="{lv[max(1, d["level"])]}"/>')
+    shown = range(gens) if anim else [0]
+    for gi in shown:
+        cells = "".join(f'<rect class="k k{c}" x="{n(LEFT + c * PITCH + 4)}" y="{n(TOP + r * PITCH + 4)}" '
+                        f'width="5" height="5" rx="1.5"/>' for c, r in sorted(frames[gi] - seed))
+        delay = f' style="animation-delay:{n(-gi * step)}s"' if anim else ""
+        grow.append(f'<g class="gen"{delay}>{cells}</g>')
+
+    # ---------------- chrome: minimal text, no chips
+    total = stats["total"]
+    bpm = round(60 * W / (loop * run))
+    mono = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+    last_month = None
+    months = []
+    for c, col in enumerate(grid):
+        d0 = col[0]["date"]
+        if d0.month != last_month and d0.day <= 7:
+            last_month = d0.month
+            if c < W - 2:
+                months.append(f'<text x="{n(LEFT + c * PITCH)}" y="{n(TOP - 9)}">{d0.strftime("%b").lower()}</text>')
+    chrome = (
+        f'<text x="{n(LEFT)}" y="30" font-family="{mono}" font-size="12" fill="{t["title"]}" '
+        f'letter-spacing=".4">{esc(user)}<tspan fill="{t["dim"]}"> / pulse</tspan></text>'
+        f'<g font-family="{mono}" font-size="11" text-anchor="end">'
+        f'<circle class="beat" cx="{n(w - PAD_R - 118)}" cy="26" r="3" fill="{glow}"/>'
+        f'<text x="{n(w - PAD_R)}" y="30" fill="{t["title"]}">{bpm}<tspan fill="{t["dim"]}"> bpm</tspan>'
+        f'<tspan fill="{t["dim"]}">  ·  </tspan>{total}<tspan fill="{t["dim"]}"> commits</tspan></text></g>'
+        f'<g font-family="{mono}" font-size="9" fill="{t["dim"]}">{"".join(months)}</g>'
+        f'<text x="{n(LEFT)}" y="{n(h - 14)}" font-family="{mono}" font-size="9" fill="{t["dim"]}">'
+        f'one beat per week · height is commits · flatline is silence</text>'
+        f'<text x="{n(w - PAD_R)}" y="{n(h - 14)}" font-family="{mono}" font-size="9" fill="{t["dim"]}" '
+        f'text-anchor="end">b3/s23</text>'
+    )
+
+    defs = (f'<filter id="gl" x="-5%" y="-40%" width="110%" height="180%">'
+            f'<feGaussianBlur stdDeviation="2.2"/></filter>'
+            f'<radialGradient id="hg"><stop offset="0" stop-color="{glow}" stop-opacity=".55"/>'
+            f'<stop offset="1" stop-color="{glow}" stop-opacity="0"/></radialGradient>')
+
+    defs += (f'<path id="ecg" d="{d_ecg}" pathLength="{PL}" fill="none" '
+             f'stroke-linejoin="round" stroke-linecap="round"/>')
+    path_attr = 'href="#ecg"'
     if anim:
-        gx0, gy0, gh = LEFT - GAP, TOP - 4, ROWS * PITCH + 5
-        head = (f'<g class="hd"><rect x="{n(gx0 - 18)}" y="{n(gy0)}" width="20" height="{n(gh)}" '
-                f'fill="url(#ecgfade)"/>'
-                f'<rect x="{n(gx0 + 1)}" y="{n(gy0)}" width="1.6" height="{n(gh)}" fill="{ecg_color}"/>'
-                f'<circle cx="{n(gx0 + 1.8)}" cy="{n(mid)}" r="3.2" fill="{ecg_color}"/>'
-                f'<circle cx="{n(gx0 + 1.8)}" cy="{n(mid)}" r="7" fill="{ecg_color}" opacity=".25"/></g>')
-        ecg_css = (f"@keyframes eat{{0%{{opacity:1}}1.2%{{opacity:1;filter:brightness(2)}}"
-                   f"3%{{opacity:0}}46%{{opacity:0}}58%,100%{{opacity:1}}}}"
-                   f"@keyframes ink{{0%{{opacity:0}}.6%,40%{{opacity:1}}60%,100%{{opacity:0}}}}"
-                   f"@keyframes hd{{0%{{transform:translateX(0);opacity:1}}"
-                   f"72%{{transform:translateX({n(W * PITCH + GAP)}px);opacity:1}}"
-                   f"74%,100%{{transform:translateX({n(W * PITCH + GAP)}px);opacity:0}}}}"
-                   f"[class^=k],[class*=' k']{{animation:eat {n(loop)}s linear infinite both}}"
-                   f".e{{animation-name:ink!important;opacity:0}}"
-                   f".hd{{animation:hd {n(loop)}s linear infinite}}")
-        ecg_css += "".join(f".k{c}{{animation-delay:{n(run * (c + .5) / W)}s}}" for c in range(W))
-        anim_css = anim_css.replace(REDUCED, "") + ecg_css + REDUCED
-    defs += (f'<linearGradient id="ecgfade" x1="0" x2="1"><stop offset="0" stop-color="{ecg_color}" '
-             f'stop-opacity="0"/><stop offset="1" stop-color="{ecg_color}" stop-opacity=".35"/>'
-             f'</linearGradient>')
-    chips = [("seeds", str(len(seed))), ("extinctions", str(extinctions)),
-             ("rule", "B3/S23"), ("bpm", str(round(60 * W / loop)))]
+        ecg = (f'<use class="tr" {path_attr} stroke="{glow}" stroke-width="3" opacity=".35" filter="url(#gl)"/>'
+               f'<use class="tr" {path_attr} stroke="{ink}" stroke-width="1.15"/>'
+               f'<use class="cm" {path_attr} stroke="{glow}" stroke-width="2.4" filter="url(#gl)"/>'
+               f'<use class="cm" {path_attr} stroke="{ink}" stroke-width="1.6"/>'
+               f'<g class="hd"><circle r="9" fill="url(#hg)"/><circle r="2.1" fill="{ink}"/></g>')
+    else:
+        ecg = (f'<use {path_attr} stroke="{glow}" stroke-width="3" opacity=".3" filter="url(#gl)"/>'
+               f'<use {path_attr} stroke="{ink}" stroke-width="1.15"/>')
+
+    css = ""
+    if anim:
+        R = run * 100
+        css = (
+            # trace is drawn by the head, persists like phosphor, then fades out
+            f"@keyframes draw{{0%{{stroke-dashoffset:{PL};opacity:1}}{n(R)}%{{stroke-dashoffset:0;opacity:1}}"
+            f"{n(R + 6)}%{{stroke-dashoffset:0;opacity:1}}100%{{stroke-dashoffset:0;opacity:0}}}}"
+            f".tr{{stroke-dasharray:{PL} {PL};animation:draw {n(loop)}s linear infinite}}"
+            # bright comet riding the leading edge
+            f"@keyframes cm{{0%{{stroke-dashoffset:24;opacity:1}}{n(R)}%{{stroke-dashoffset:{24 - PL};opacity:1}}"
+            f"{n(R + .5)}%,100%{{stroke-dashoffset:{24 - PL};opacity:0}}}}"
+            f".cm{{stroke-dasharray:24 {PL * 2};animation:cm {n(loop)}s linear infinite}}"
+            # head follows the exact waveform
+            f"@keyframes hd{{0%{{offset-distance:0%;opacity:1}}{n(R)}%{{offset-distance:100%;opacity:1}}"
+            f"{n(R + 1.5)}%,100%{{offset-distance:100%;opacity:0}}}}"
+            f".hd{{offset-path:path('{d_ecg}');offset-rotate:0deg;animation:hd {n(loop)}s linear infinite}}"
+            # a day gets bitten: flash, pop, collapse, then regrow quietly
+            f"@keyframes eat{{0%{{transform:scale(1);opacity:1}}.8%{{transform:scale(1.35);opacity:1}}"
+            f"3.5%{{transform:scale(0);opacity:0}}52%{{transform:scale(0);opacity:0}}"
+            f"60%{{transform:scale(1.08);opacity:1}}64%,100%{{transform:scale(1);opacity:1}}}}"
+            f".k{{transform-box:fill-box;transform-origin:center;"
+            f"animation:eat {n(loop)}s cubic-bezier(.3,.7,.3,1) infinite backwards}}"
+            f"@keyframes gen{{0%,{n(100 / gens)}%{{opacity:1}}{n(100 / gens + .01)}%,100%{{opacity:0}}}}"
+            f".gen{{opacity:0;animation:gen {n(gdur)}s steps(1,end) infinite}}"
+            f"@keyframes beat{{0%,100%{{opacity:.25;transform:scale(1)}}8%{{opacity:1;transform:scale(1.5)}}"
+            f"30%{{opacity:.25;transform:scale(1)}}}}"
+            f".beat{{transform-box:fill-box;transform-origin:center;animation:beat {n(loop * run / W)}s ease-out infinite}}"
+        )
+        css += "".join(f".k{c}{{animation-delay:{n(loop * run * frac[c] + 0.02)}s}}" for c in range(W))
+        css += ("@media (prefers-reduced-motion:reduce){*{animation:none!important}"
+                ".cm,.hd{display:none}.gen{opacity:0}.gen:first-child{opacity:1}}")
+
     body = [
-        f'<rect width="{n(w)}" height="{n(h)}" fill="url(#lg2)"/>',
-        base_grid(grid, theme, opacity=0.3 if theme == "dark" else 0.44, rx=3.2, sweep=0.012,
-                  mode="life"),
-        seed_ring,
-        "".join(layers),
-        trace,
-        head,
-        header(w, theme, "cellular contributions", f"{user} · life + heartbeat, seeded by your commits", chips),
-        month_labels(grid, w, theme),
-        footer(w, h, theme, "bright = a day you pushed · dim = automaton growth · the heartbeat eats each week, then it regrows"),
+        f'<g fill="{lv[0]}" opacity="{".55" if theme == "dark" else ".7"}">{"".join(tiles)}</g>',
+        f'<g fill="{t["accent"]}" opacity="{".28" if theme == "dark" else ".35"}">{"".join(grow)}</g>',
+        f'<g>{"".join(real)}</g>',
+        ecg,
+        chrome,
     ]
-    return (open_svg(w, h, theme, anim_css, defs, "cellular contribution automaton",
-                     f'{stats["total"]} contributions'), "".join(body), w, h)
+    return (open_svg(w, h, theme, css, defs, "contribution pulse",
+                     f"{total} contributions as a heartbeat over a cellular automaton"),
+            "".join(body), w, h)
 
 
 MODES = {"night": render_night, "climate": render_climate, "pulse": render_pulse, "life": render_life}
