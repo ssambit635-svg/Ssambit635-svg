@@ -11,8 +11,8 @@ on:
         default: "53"
         type: string
       modes:
-        description: "Comma separated: night,climate,pulse,life"
-        default: "night,climate,pulse,life"
+        description: "Comma separated: life"
+        default: "life"
         type: string
   push:
     branches: [main]
@@ -46,7 +46,7 @@ jobs:
             --user "$GH_USER" \
             --out assets \
             --weeks "${{ inputs.weeks || 53 }}" \
-            --modes "${{ inputs.modes || 'night,climate,pulse,life' }}"
+            --modes "${{ inputs.modes || 'life' }}"
 
       - name: Commit if changed
         run: |
