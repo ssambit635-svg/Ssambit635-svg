@@ -2,10 +2,12 @@
 """
 contribgraph.py - turn the contribution grid into things nobody else has.
 
-Four animated "lenses" over your real commit history, each a standalone SVG
+Five animated "lenses" over your real contribution history, each a standalone SVG
 that animates inside a GitHub README (pure CSS/SMIL - no JS, because GitHub
 renders README SVGs as images and scripts are disabled there):
 
+    aurora   a precise heatmap: true daily levels, data-weighted weekly blooms,
+             and one restrained scanner sweep
     night    a star chart: active days are stars, streaks are constellations,
              your best day goes nova, meteors cross the sky
     climate  a weather system: rain falls on empty weeks, heat flares on big
@@ -17,7 +19,7 @@ renders README SVGs as images and scripts are disabled there):
 
 Usage
     python scripts/contribgraph.py --user ssambit635-svg --out assets
-    python scripts/contribgraph.py --modes night,pulse --weeks 53
+    python scripts/contribgraph.py --modes aurora --weeks 53
     python scripts/contribgraph.py --json assets/contributions.json --offline
 
 Data comes from github.com/users/<user>/contributions (no token needed) and is
@@ -1066,7 +1068,140 @@ def render_life(grid, theme, stats, user, weeks, anim=True, gens=16, freeze=0):
             "".join(body), w, h)
 
 
-MODES = {"night": render_night, "climate": render_climate, "pulse": render_pulse, "life": render_life}
+def render_aurora(grid, theme, stats, user, weeks, anim=True):
+    """A true contribution heatmap with restrained, activity-weighted aurora light."""
+    t = dict(THEMES[theme])
+    if theme == "dark":
+        t.update(bg="#090e13", bg2="#0a1516", grid="#2a353d",
+                 title="#e8f0ef", label="#9cabae", dim="#718188", accent="#c9f178")
+        ramp = ["#151c22", "#163b38", "#1b6653", "#258968", "#b7e875"]
+        aurora_cool, aurora_peak = "#42d8c0", "#c1ef70"
+        scan_color = "#efffc0"
+    else:
+        t.update(bg="#f7faf8", bg2="#edf4f0", grid="#d5e0da",
+                 title="#18352a", label="#526a60", dim="#788981", accent="#267651")
+        ramp = ["#edf2ef", "#c7e3d3", "#8bc7a2", "#4a9e73", "#185e43"]
+        aurora_cool, aurora_peak = "#4cae9c", "#90bd53"
+        scan_color = "#397653"
+
+    w = LEFT + weeks * PITCH + PAD_R
+    h = TOP + ROWS * PITCH + PAD_B
+    plot_w = weeks * PITCH - GAP
+    plot_h = ROWS * PITCH - GAP
+    weekly = [sum(d["count"] for d in col if not d["future"]) for col in grid]
+    peak_week = max(weekly, default=0) or 1
+
+    # Soft vertical blooms exist only behind weeks with real contributions.
+    # Their opacity follows the weekly total; the squares above remain the data.
+    blooms = []
+    for c, total in enumerate(weekly):
+        if total <= 0:
+            continue
+        intensity = math.sqrt(total / peak_week)
+        gradient = "aurora-peak" if intensity >= 0.68 else "aurora-cool"
+        opacity = 0.22 + 0.18 * intensity
+        x = LEFT + c * PITCH - 10
+        blooms.append(
+            f'<rect x="{n(x)}" y="{n(TOP - 10)}" width="{n(PITCH + 20)}" '
+            f'height="{n(plot_h + 20)}" rx="18" fill="url(#{gradient})" '
+            f'opacity="{n(opacity)}" filter="url(#aurora-blur)"/>'
+        )
+
+    cells = []
+    for c, col in enumerate(grid):
+        for r, d in enumerate(col):
+            if d["future"]:
+                continue
+            level = max(0, min(4, int(d["level"])))
+            x, y = LEFT + c * PITCH, TOP + r * PITCH
+            cells.append(
+                f'<rect x="{n(x)}" y="{n(y)}" width="{n(CELL)}" height="{n(CELL)}" '
+                f'rx="3.2" fill="{ramp[level]}" stroke="{t["grid"]}" stroke-width=".45"/>'
+            )
+
+    defs = (
+        f'<linearGradient id="field-bg" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{t["bg"]}"/><stop offset="1" stop-color="{t["bg2"]}"/>'
+        f'</linearGradient>'
+        f'<linearGradient id="aurora-cool" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{aurora_cool}" stop-opacity="0"/>'
+        f'<stop offset=".24" stop-color="{aurora_cool}" stop-opacity=".22"/>'
+        f'<stop offset=".52" stop-color="{aurora_peak}" stop-opacity=".34"/>'
+        f'<stop offset=".78" stop-color="{aurora_cool}" stop-opacity=".18"/>'
+        f'<stop offset="1" stop-color="{aurora_cool}" stop-opacity="0"/>'
+        f'</linearGradient>'
+        f'<linearGradient id="aurora-peak" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{aurora_cool}" stop-opacity="0"/>'
+        f'<stop offset=".2" stop-color="{aurora_cool}" stop-opacity=".26"/>'
+        f'<stop offset=".52" stop-color="{aurora_peak}" stop-opacity=".42"/>'
+        f'<stop offset=".8" stop-color="{aurora_cool}" stop-opacity=".2"/>'
+        f'<stop offset="1" stop-color="{aurora_cool}" stop-opacity="0"/>'
+        f'</linearGradient>'
+        f'<linearGradient id="scan-beam" x1="0%" y1="0%" x2="100%" y2="0%">'
+        f'<stop offset="0%" stop-color="{scan_color}" stop-opacity="0"/>'
+        f'<stop offset="45%" stop-color="{scan_color}" stop-opacity=".025"/>'
+        f'<stop offset="54%" stop-color="{scan_color}" stop-opacity=".18"/>'
+        f'<stop offset="61%" stop-color="{scan_color}" stop-opacity=".045"/>'
+        f'<stop offset="100%" stop-color="{scan_color}" stop-opacity="0"/>'
+        f'</linearGradient>'
+        f'<filter id="aurora-blur" x="-90%" y="-30%" width="280%" height="160%">'
+        f'<feGaussianBlur stdDeviation="8"/></filter>'
+        f'<clipPath id="plot-clip"><rect x="{n(LEFT)}" y="{n(TOP - 5)}" '
+        f'width="{n(plot_w)}" height="{n(plot_h + 10)}"/></clipPath>'
+    )
+
+    scan = ""
+    style = ""
+    if anim:
+        beam_w = 96
+        travel = plot_w + beam_w + 24
+        scan = (
+            f'<g class="aurora-scan" clip-path="url(#plot-clip)">'
+            f'<rect x="{n(LEFT - beam_w)}" y="{n(TOP - 5)}" width="{beam_w}" '
+            f'height="{n(plot_h + 10)}" fill="url(#scan-beam)"/>'
+            f'<line x1="{n(LEFT - beam_w / 2)}" y1="{n(TOP - 2)}" '
+            f'x2="{n(LEFT - beam_w / 2)}" y2="{n(TOP + plot_h + 2)}" '
+            f'stroke="{scan_color}" stroke-width=".8" opacity=".2"/>'
+            f'</g>'
+        )
+        style = (
+            f'@keyframes aurora-sweep{{0%{{transform:translateX(0px);opacity:0}}'
+            f'5%{{opacity:.78}}92%{{opacity:.78}}'
+            f'100%{{transform:translateX({n(travel)}px);opacity:0}}}}'
+            f'.aurora-scan{{animation:aurora-sweep 26s cubic-bezier(.42,0,.2,1) infinite;'
+            f'transform-box:fill-box;transform-origin:0 0}}'
+            f'@media (prefers-reduced-motion:reduce){{.aurora-scan{{display:none!important;animation:none!important}}}}'
+        )
+
+    chips = [
+        ("contributions", f'{stats["total"]:,}'),
+        ("active days", str(stats["active"])),
+        ("best streak", f'{stats["streak"]}d'),
+    ]
+    body = [
+        f'<rect width="{n(w)}" height="{n(h)}" fill="url(#field-bg)"/>',
+        f'<g clip-path="url(#plot-clip)">{"".join(blooms)}</g>',
+        "".join(cells),
+        scan,
+        header(w, theme, "contribution activity",
+               f'{user} · {weeks} weeks · color = daily contribution level', chips, t),
+        month_labels(grid, w, theme, t),
+        footer(w, h, theme, "true daily data · bloom intensity follows the activity of each week",
+               t, swatch=ramp),
+    ]
+    desc = (f'Real GitHub contribution levels over {weeks} weeks; '
+            'soft aurora blooms reflect weekly activity without changing the data.')
+    return (open_svg(w, h, theme, style, defs, "contribution aurora heatmap", desc, bg=t["bg"]),
+            "".join(body), w, h)
+
+
+MODES = {
+    "aurora": render_aurora,
+    "night": render_night,
+    "climate": render_climate,
+    "pulse": render_pulse,
+    "life": render_life,
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -1077,7 +1212,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1], prog="contribgraph.py")
     ap.add_argument("--user", default=os.environ.get("GH_USER") or os.environ.get("GITHUB_REPOSITORY_OWNER") or "")
     ap.add_argument("--out", default="assets", help="output directory (default: assets)")
-    ap.add_argument("--modes", default="night,climate,pulse,life")
+    ap.add_argument("--modes", default="aurora,night,climate,pulse,life")
     ap.add_argument("--weeks", type=int, default=53)
     ap.add_argument("--json", dest="json_path", default="", help="cache file (default: <out>/contributions.json)")
     ap.add_argument("--offline", action="store_true", help="never touch the network, only use the cache")
