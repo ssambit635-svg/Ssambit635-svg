@@ -34,11 +34,11 @@ $ cat about.txt
 
 Hi, I'm **Sambit Swain** — a developer from **Berhampur, Odisha** with a **night owl** rhythm. I believe in hands-on building: learning technologies not through passive theory, but by shipping real projects, breaking things, and figuring them out as I go.
 
-- 🔭 Currently building **a personal AI that manages and organizes files**
-- ⚡ Currently learning **Full Stack Development & Cloud Architecture (AWS)**
-- 🌐 Portfolio: **[ssambit635-svg.github.io/portfolio.site](https://ssambit635-svg.github.io/portfolio.site/)**
-- 🏆 Hackathons: **SIH 2026** (Annadata-Connect) & **Tech Zypher 2026** (Shadow Quest)
-- 💡 Philosophy: **Write code, ship to a live URL, and iterate with real feedback.**
+-  Currently building **a personal AI that manages and organizes files**
+-  Currently learning **Full Stack Development & Cloud Architecture (AWS)**
+-  Portfolio: **[ssambit635-svg.github.io/portfolio.site](https://ssambit635-svg.github.io/portfolio.site/)**
+-  Hackathons: **SIH 2026** (Annadata-Connect) & **Tech Zypher 2026** (Shadow Quest)
+-  Philosophy: **Write code, ship to a live URL, and iterate with real feedback.**
 
 <br>
 
